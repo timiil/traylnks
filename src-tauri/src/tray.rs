@@ -14,7 +14,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Wry};
 
 pub const TRAY_ID: &str = "main";
-const LNK_PREFIX: &str = "lnk:";
+const RUN_PREFIX: &str = "run:";
 
 /// Build the tray icon itself (called once at startup).
 pub fn build_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
@@ -62,13 +62,13 @@ pub fn rebuild_now(app: &AppHandle<Wry>) {
     });
 }
 
-/// Route a menu click. `.lnk` items carry their path in the id; the rest are
-/// the fixed utility items.
+/// Route a menu click. Launchable items (`.lnk`/`.cmd`/`.ps1`) carry their path
+/// in the id; the rest are the fixed utility items.
 pub fn handle_menu_event(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
     let id = event.id().as_ref();
-    if let Some(path_str) = id.strip_prefix(LNK_PREFIX) {
+    if let Some(path_str) = id.strip_prefix(RUN_PREFIX) {
         let path = PathBuf::from(path_str);
-        if let Err(e) = crate::launch::open(&path) {
+        if let Err(e) = crate::launch::launch_target(&path) {
             log::error!("launch {} failed: {}", path.display(), e);
         }
         return;
@@ -77,7 +77,7 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
         "refresh" => rebuild_now(app),
         "open_folder" => {
             if let Some(wp) = crate::state::watch_path(app) {
-                if let Err(e) = crate::launch::open(&wp) {
+                if let Err(e) = crate::launch::open_folder(&wp) {
                     log::error!("open launcher folder failed: {e}");
                 }
             }
@@ -102,7 +102,7 @@ fn empty_tree() -> MenuNode {
     MenuNode {
         kind: Kind::Folder,
         label: String::new(),
-        lnk_path: None,
+        target_path: None,
         icon_base: None,
         children: Vec::new(),
     }
@@ -169,7 +169,7 @@ fn build_item(app: &AppHandle<Wry>, node: &MenuNode) -> tauri::Result<Box<dyn Is
         }
         Kind::Item => {
             let icon = node.icon_base.as_ref().and_then(|p| crate::icon::load_icon(p));
-            let id = lnk_id(node.lnk_path.as_deref());
+            let id = item_id(node.target_path.as_deref());
             Ok(Box::new(IconMenuItem::with_id(
                 app,
                 id,
@@ -182,10 +182,10 @@ fn build_item(app: &AppHandle<Wry>, node: &MenuNode) -> tauri::Result<Box<dyn Is
     }
 }
 
-/// Encode the `.lnk` path into the menu-item id so click routing can recover it.
-fn lnk_id(path: Option<&std::path::Path>) -> String {
+/// Encode the target path into the menu-item id so click routing can recover it.
+fn item_id(path: Option<&std::path::Path>) -> String {
     match path {
-        Some(p) => format!("{LNK_PREFIX}{}", p.to_string_lossy()),
-        None => format!("{LNK_PREFIX}<none>"),
+        Some(p) => format!("{RUN_PREFIX}{}", p.to_string_lossy()),
+        None => format!("{RUN_PREFIX}<none>"),
     }
 }

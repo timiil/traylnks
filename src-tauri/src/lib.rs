@@ -4,6 +4,8 @@ mod commands;
 mod config;
 mod icon;
 mod launch;
+#[cfg(windows)]
+mod launch_windows;
 mod menu_tree;
 mod state;
 mod station;

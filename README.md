@@ -4,10 +4,15 @@ A lightweight **Windows tray link launcher**. The filesystem is the config: a
 watched local folder becomes a multi-level tray menu.
 
 - folder → submenu (recursive)
-- `<name>.lnk` → menu item (launched by Windows Shell — the shortcut is never parsed)
+- launchables → menu items: `<name>.lnk`, `<name>.cmd`, `<name>.ps1`
+  - `.lnk`/`.cmd`: run via the shell `open` verb; `.ps1` is invoked as
+    `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <path>` (its default
+    association would otherwise open an editor)
+  - the launched window is brought to the **foreground** (`AllowSetForegroundWindow`
+    + `ShellExecuteExW` + best-effort `SetForegroundWindow`)
 - same-name image (`<name>.ico/.png/.jpg/.jpeg`) → menu icon (folder icons too)
 - `.station` file → restricts a subtree to specific Windows hostnames
-- other files (`.md`, `.txt`, `.ps1`, …) are ignored (whitelist rendering)
+- other files (`.md`, `.txt`, `.bat`, …) are ignored (whitelist rendering)
 
 See [`prd.md`](./prd.md) for the full spec. v0.1 scope is defined in PRD §13.
 

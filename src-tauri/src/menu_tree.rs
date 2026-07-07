@@ -2,7 +2,7 @@
 //!
 //! This module has NO Tauri types — only filesystem logic — so it is unit-testable
 //! and can run off the main thread. It applies:
-//!   - whitelist rendering (only folders and `.lnk`; everything else ignored)
+//!   - whitelist rendering (folders + launchables `.lnk`/`.cmd`/`.ps1`; rest ignored)
 //!   - `.station` short-circuit (a non-matching parent hides the whole subtree)
 //!   - icon-base resolution (path without extension, for later icon lookup)
 //!   - fault tolerance (unreadable dirs, bad file types → skip + log, never panic)
@@ -18,10 +18,10 @@ pub enum Kind {
 #[derive(Debug, Clone)]
 pub struct MenuNode {
     pub kind: Kind,
-    /// Display label: folder name, or the `.lnk` filename with extension stripped.
+    /// Display label: folder name, or the launchable file's stem (extension stripped).
     pub label: String,
-    /// `Some` for items — the absolute `.lnk` path to launch.
-    pub lnk_path: Option<PathBuf>,
+    /// `Some` for items — the absolute path to launch (`.lnk`/`.cmd`/`.ps1`).
+    pub target_path: Option<PathBuf>,
     /// Path without extension, used to look up same-name icon files.
     pub icon_base: Option<PathBuf>,
     pub children: Vec<MenuNode>,
@@ -29,6 +29,9 @@ pub struct MenuNode {
 
 /// Hard cap to guard against pathological deep nesting.
 const MAX_DEPTH: usize = 32;
+
+/// File extensions rendered as launchable menu items (case-insensitive).
+const LAUNCH_EXTS: &[&str] = &["lnk", "cmd", "ps1"];
 
 /// Build the menu tree from `root`. The root node is always a Folder container;
 /// its children are the filtered scan results.
@@ -40,7 +43,7 @@ pub fn build_tree(root: &Path, hostname_lower: &str) -> MenuNode {
     let mut node = MenuNode {
         kind: Kind::Folder,
         label,
-        lnk_path: None,
+        target_path: None,
         icon_base: Some(root.to_path_buf()),
         children: Vec::new(),
     };
@@ -92,13 +95,13 @@ fn fill_children(parent: &mut MenuNode, dir: &Path, hostname_lower: &str, depth:
             let mut child = MenuNode {
                 kind: Kind::Folder,
                 label,
-                lnk_path: None,
+                target_path: None,
                 icon_base: Some(path.clone()),
                 children: Vec::new(),
             };
             fill_children(&mut child, &path, hostname_lower, depth + 1);
             items.push(child);
-        } else if ft.is_file() && has_lnk_ext(&path) {
+        } else if ft.is_file() && is_launchable(&path) {
             let stem = path
                 .file_stem()
                 .map(|s| s.to_string_lossy().to_string())
@@ -106,12 +109,12 @@ fn fill_children(parent: &mut MenuNode, dir: &Path, hostname_lower: &str, depth:
             items.push(MenuNode {
                 kind: Kind::Item,
                 label: stem,
-                lnk_path: Some(path.clone()),
+                target_path: Some(path.clone()),
                 icon_base: Some(path.with_extension("")),
                 children: Vec::new(),
             });
         }
-        // everything else (.md, .txt, .ps1, icon files, .station) is ignored silently
+        // everything else (.md, .txt, .bat, icon files, .station) is ignored silently
     }
 
     // Stable order: folders first, then items, each case-insensitive alphabetical.
@@ -124,9 +127,12 @@ fn fill_children(parent: &mut MenuNode, dir: &Path, hostname_lower: &str, depth:
     parent.children = items;
 }
 
-fn has_lnk_ext(path: &Path) -> bool {
+/// True if `path`'s extension is a launchable type (`.lnk`/`.cmd`/`.ps1`).
+fn is_launchable(path: &Path) -> bool {
     path.extension()
-        .map(|e| e.eq_ignore_ascii_case("lnk"))
+        .map(|e| {
+            LAUNCH_EXTS.iter().any(|x| e.eq_ignore_ascii_case(x))
+        })
         .unwrap_or(false)
 }
 
@@ -148,11 +154,16 @@ mod tests {
     }
 
     #[test]
-    fn whitelist_renders_only_folders_and_lnk() {
+    fn whitelist_renders_launchables_and_skips_others() {
         let root = tmp();
+        // launchables (render)
         fs::write(root.join("Terminal.lnk"), b"").unwrap();
+        fs::write(root.join("build.cmd"), b"").unwrap();
+        fs::write(root.join("run.ps1"), b"").unwrap();
+        // non-launchables (do NOT render)
         fs::write(root.join("notes.txt"), b"").unwrap();
         fs::write(root.join("readme.md"), b"").unwrap();
+        fs::write(root.join("old.bat"), b"").unwrap(); // .bat excluded by choice
         fs::write(root.join("Terminal.png"), b"").unwrap(); // icon, not an item
         fs::create_dir(root.join("Dev")).unwrap();
 
@@ -160,8 +171,11 @@ mod tests {
         let labels: Vec<&str> = tree.children.iter().map(|c| c.label.as_str()).collect();
         assert!(labels.contains(&"Dev"));
         assert!(labels.contains(&"Terminal"));
+        assert!(labels.contains(&"build"));
+        assert!(labels.contains(&"run"));
         assert!(!labels.contains(&"notes"));
         assert!(!labels.contains(&"readme"));
+        assert!(!labels.contains(&"old"));
         assert!(!labels.contains(&"Terminal.png"));
     }
 

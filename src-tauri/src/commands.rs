@@ -72,7 +72,7 @@ pub fn pick_watch_folder(app: AppHandle<Wry>) -> Result<Option<String>, String> 
 #[tauri::command]
 pub fn open_launcher_folder(app: AppHandle<Wry>) -> Result<(), String> {
     match crate::state::watch_path(&app) {
-        Some(wp) => crate::launch::open(&wp).map_err(|e| e.to_string()),
+        Some(wp) => crate::launch::open_folder(&wp).map_err(|e| e.to_string()),
         None => Err("no watch folder configured".into()),
     }
 }
