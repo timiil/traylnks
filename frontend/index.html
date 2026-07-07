@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrayLnks Settings</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <nav class="tabs">
+      <button class="tab active" data-tab="general">General</button>
+      <button class="tab" data-tab="paths">Paths</button>
+      <button class="tab" data-tab="station">Station</button>
+      <button class="tab" data-tab="diag">Diagnostics</button>
+    </nav>
+
+    <main>
+      <!-- General -->
+      <section id="general" class="panel active">
+        <label class="row">
+          <span>Start with Windows</span>
+          <input type="checkbox" id="autostart" />
+        </label>
+        <label class="row">
+          <span>Start minimized to tray</span>
+          <input type="checkbox" id="startMinimized" />
+        </label>
+        <p class="hint">Changes are saved automatically.</p>
+      </section>
+
+      <!-- Paths -->
+      <section id="paths" class="panel">
+        <div class="field">
+          <label for="watchPath">Local Watch Path</label>
+          <div class="pathrow">
+            <input type="text" id="watchPath" placeholder="(not set)" readonly />
+            <button id="browseWatch">Browse…</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="cloudPath">Cloud Authorized Path (optional)</label>
+          <div class="pathrow">
+            <input type="text" id="cloudPath" placeholder="(not set)" />
+            <button id="browseCloud">Browse…</button>
+          </div>
+        </div>
+        <button id="savePaths" class="primary">Save</button>
+        <p id="pathStatus" class="hint"></p>
+      </section>
+
+      <!-- Station -->
+      <section id="station" class="panel">
+        <p class="hint">This computer's hostname (used for <code>.station</code> filtering):</p>
+        <div class="pathrow">
+          <input type="text" id="hostname" readonly />
+          <button id="copyHost">Copy</button>
+        </div>
+      </section>
+
+      <!-- Diagnostics -->
+      <section id="diag" class="panel">
+        <dl id="diagList"></dl>
+        <button id="refreshNow">Refresh menu now</button>
+      </section>
+    </main>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# IMPORTANT: do NOT add a [target.x86_64-pc-windows-msvc] linker entry and do
+# NOT set a default build.target. cargo-xwin owns linking (it injects lld-link
+# and downloads the MSVC CRT/SDK at build time); a manual `linker =` line breaks
+# it. Leaving build.target unset keeps `cargo fmt`/`clippy`/`check` running on
+# the native Linux host.

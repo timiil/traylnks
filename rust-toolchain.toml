@@ -1,0 +1,7 @@
+# Pinned toolchain for reproducible cross-compiles.
+# `stable` resolves to the already-installed stable Rust on this box (1.96.x).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-pc-windows-msvc"]
+profile = "minimal"

@@ -1,0 +1,40 @@
+[package]
+name = "traylnks"
+version = "0.1.0"
+description = "Windows tray link launcher — filesystem is the config"
+authors = ["TrayLnks"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "traylnks_lib"
+crate-type = ["staticlib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-log = "2"
+tauri-plugin-dialog = "2"
+
+notify = "6"
+notify-debouncer-full = "0.3"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "ico"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+gethostname = "0.5"
+parking_lot = "0.12"
+log = "0.4"
+thiserror = "2"
+open = "5"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

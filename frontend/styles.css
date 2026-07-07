@@ -1,0 +1,100 @@
+:root {
+  --bg: #1e1e2e;
+  --panel: #2a2a3c;
+  --accent: #6b8cff;
+  --text: #e4e4ef;
+  --muted: #9a9ab0;
+  --border: #3a3a52;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: #181828;
+  padding: 6px 6px 0;
+}
+
+.tab {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab.active {
+  background: var(--panel);
+  color: var(--text);
+}
+
+main {
+  flex: 1;
+  padding: 20px;
+  overflow: auto;
+}
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.field { margin-bottom: 18px; }
+
+label { display: block; margin-bottom: 6px; color: var(--muted); }
+
+.pathrow { display: flex; gap: 8px; }
+
+input[type="text"] {
+  flex: 1;
+  background: #15151f;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 12px;
+}
+
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); }
+
+.hint { color: var(--muted); font-size: 12px; }
+code { background: #15151f; padding: 1px 5px; border-radius: 4px; }
+
+dl { margin: 0; }
+dt { color: var(--muted); margin-top: 10px; font-size: 12px; }
+dd { margin: 2px 0 0 0; font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; word-break: break-all; }

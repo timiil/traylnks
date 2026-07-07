@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for the TrayLnks settings window. All FS, dialog and launch work happens in the Rust backend via #[tauri::command], so the frontend needs no direct plugin scopes.",
+  "windows": ["settings"],
+  "permissions": [
+    "core:default",
+    "log:default"
+  ]
+}

@@ -1,0 +1,16 @@
+# Rust / Cargo
+target/
+**/*.rs.bk
+
+# Tauri
+src-tauri/gen/
+
+# generated icons (regenerated via tools/icon-gen + `cargo tauri icon`)
+# (keep them checked in for now — remove these two lines to ignore)
+# src-tauri/icons/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
