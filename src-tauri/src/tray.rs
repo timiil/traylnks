@@ -168,7 +168,11 @@ fn build_item(app: &AppHandle<Wry>, node: &MenuNode) -> tauri::Result<Box<dyn Is
             Ok(Box::new(submenu))
         }
         Kind::Item => {
-            let icon = node.icon_base.as_ref().and_then(|p| crate::icon::load_icon(p));
+            let icon = node
+                .icon_base
+                .as_ref()
+                .zip(node.target_path.as_ref())
+                .and_then(|(base, target)| crate::icon::load_item_icon(base, target));
             let id = item_id(node.target_path.as_deref());
             Ok(Box::new(IconMenuItem::with_id(
                 app,
