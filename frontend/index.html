@@ -11,6 +11,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="general">General</button>
       <button class="tab" data-tab="paths">Paths</button>
+      <button class="tab" data-tab="cloud">Cloud</button>
       <button class="tab" data-tab="station">Station</button>
       <button class="tab" data-tab="diag">Diagnostics</button>
     </nav>
@@ -38,15 +39,49 @@
             <button id="browseWatch">Browse…</button>
           </div>
         </div>
-        <div class="field">
-          <label for="cloudPath">Cloud Authorized Path (optional)</label>
-          <div class="pathrow">
-            <input type="text" id="cloudPath" placeholder="(not set)" />
-            <button id="browseCloud">Browse…</button>
-          </div>
-        </div>
         <button id="savePaths" class="primary">Save</button>
         <p id="pathStatus" class="hint"></p>
+      </section>
+
+      <!-- Cloud -->
+      <section id="cloud" class="panel">
+        <div class="field">
+          <label>Aliyun Drive (阿里云盘)</label>
+          <div class="pathrow">
+            <span id="cloudConnStatus" class="hint">Not connected</span>
+            <button id="cloudAuthBtn">Authorize…</button>
+            <button id="cloudReauthBtn" hidden>Re-authorize</button>
+            <button id="cloudDisconnectBtn" hidden>Disconnect</button>
+          </div>
+          <img id="qrImg" alt="QR code" hidden style="max-width: 220px; border-radius: 6px" />
+          <p id="qrHint" class="hint" hidden></p>
+        </div>
+        <div class="field">
+          <label for="cloudFolder">Cloud folder</label>
+          <div class="pathrow">
+            <input type="text" id="cloudFolder" list="cloudFolderList" placeholder="/TrayLnks" disabled />
+            <button id="cloudRefreshFolders" disabled>List folders</button>
+          </div>
+          <datalist id="cloudFolderList"></datalist>
+          <p class="hint">Absolute path in the drive to mirror against the watch path. Created on first sync if missing.</p>
+        </div>
+        <div class="field">
+          <label for="cloudInterval">Refresh interval</label>
+          <select id="cloudInterval">
+            <option value="15">every 15 min</option>
+            <option value="30" selected>every 30 min</option>
+            <option value="60">every 60 min</option>
+            <option value="120">every 2 h</option>
+          </select>
+        </div>
+        <label class="row">
+          <span>Enable automatic sync</span>
+          <input type="checkbox" id="cloudEnable" />
+        </label>
+        <div class="pathrow">
+          <button id="syncNowBtn" class="primary">Sync now</button>
+          <span id="cloudStatusLine" class="hint"></span>
+        </div>
       </section>
 
       <!-- Station -->

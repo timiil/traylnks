@@ -1,5 +1,6 @@
 //! TrayLnks — Windows tray link launcher (Tauri v2 backend).
 
+mod cloud;
 mod commands;
 mod config;
 mod icon;
@@ -19,6 +20,12 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Stdout,
+                ))
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -52,6 +59,13 @@ pub fn run() {
             commands::open_launcher_folder,
             commands::show_settings_cmd,
             commands::set_autostart,
+            commands::cloud_start_auth,
+            commands::cloud_poll_auth,
+            commands::cloud_disconnect,
+            commands::cloud_list_folders,
+            commands::cloud_set_folder,
+            commands::get_cloud_status,
+            commands::sync_now,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TrayLnks");

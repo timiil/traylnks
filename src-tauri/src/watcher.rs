@@ -12,10 +12,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, Wry};
 
 /// Platform-recommended watcher debouncer (Windows: ReadDirectoryChangesWatcher).
-pub type AppDebouncer = notify_debouncer_full::Debouncer<
-    notify::RecommendedWatcher,
-    notify_debouncer_full::FileIdMap,
->;
+pub type AppDebouncer =
+    notify_debouncer_full::Debouncer<notify::RecommendedWatcher, notify_debouncer_full::FileIdMap>;
 
 const DEBOUNCE_MS: u64 = 500;
 

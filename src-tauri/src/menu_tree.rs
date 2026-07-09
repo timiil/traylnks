@@ -59,7 +59,11 @@ pub fn build_tree(root: &Path, hostname_lower: &str) -> MenuNode {
 
 fn fill_children(parent: &mut MenuNode, dir: &Path, hostname_lower: &str, depth: usize) {
     if depth >= MAX_DEPTH {
-        log::warn!("max nesting depth {} reached at {}", MAX_DEPTH, dir.display());
+        log::warn!(
+            "max nesting depth {} reached at {}",
+            MAX_DEPTH,
+            dir.display()
+        );
         return;
     }
 
@@ -130,9 +134,7 @@ fn fill_children(parent: &mut MenuNode, dir: &Path, hostname_lower: &str, depth:
 /// True if `path`'s extension is a launchable type (`.lnk`/`.cmd`/`.ps1`).
 fn is_launchable(path: &Path) -> bool {
     path.extension()
-        .map(|e| {
-            LAUNCH_EXTS.iter().any(|x| e.eq_ignore_ascii_case(x))
-        })
+        .map(|e| LAUNCH_EXTS.iter().any(|x| e.eq_ignore_ascii_case(x)))
         .unwrap_or(false)
 }
 

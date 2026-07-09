@@ -7,9 +7,7 @@
 
 use crate::menu_tree::{Kind, MenuNode};
 use std::path::PathBuf;
-use tauri::menu::{
-    IconMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu,
-};
+use tauri::menu::{IconMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Wry};
 
@@ -46,18 +44,16 @@ pub fn rebuild_now(app: &AppHandle<Wry>) {
             None => empty_tree(),
         };
         let app3 = app2.clone();
-        let _ = app2.run_on_main_thread(move || {
-            match build_menu(&app3, &tree) {
-                Ok(menu) => {
-                    if let Some(tray) = app3.tray_by_id(TRAY_ID) {
-                        if let Err(e) = tray.set_menu(Some(menu)) {
-                            log::error!("set_menu failed: {e}");
-                        }
+        let _ = app2.run_on_main_thread(move || match build_menu(&app3, &tree) {
+            Ok(menu) => {
+                if let Some(tray) = app3.tray_by_id(TRAY_ID) {
+                    if let Err(e) = tray.set_menu(Some(menu)) {
+                        log::error!("set_menu failed: {e}");
                     }
-                    crate::state::set_last_scan(&app3, std::time::SystemTime::now());
                 }
-                Err(e) => log::error!("build_menu failed: {e}"),
+                crate::state::set_last_scan(&app3, std::time::SystemTime::now());
             }
+            Err(e) => log::error!("build_menu failed: {e}"),
         });
     });
 }

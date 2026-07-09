@@ -32,6 +32,27 @@ log = "0.4"
 thiserror = "2"
 open = "5"
 
+# Cloud sync (v0.2) — Aliyun Drive first, provider-pluggable.
+# We pin reqwest to 0.12 (the transitive 0.13 in the wry stack renamed its TLS
+# features and defaults to aws-lc-rs which is painful under cargo-xwin). 0.12's
+# `rustls-tls` uses ring — cmake-free, cross-compiles cleanly to msvc. Async
+# client (not blocking): Tauri dispatches sync commands on its tokio runtime,
+# where reqwest::blocking would panic on runtime nesting.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "cookies"] }
+async-trait = "0.1"
+tokio = { version = "1", features = ["sync", "time", "macros"] }
+# keyring v3 ships NO backend by default — without `windows-native` the store is
+# a no-op mock and tokens don't survive a restart. Enable the Windows backend
+# (Credential Manager / DPAPI); it's cfg(windows)-gated inside the crate.
+keyring = { version = "3", features = ["windows-native"] }
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+filetime = "0.2"
+# QR rendering (passport login returns text to encode, not an image).
+# default-features = false: we render SVG from the module matrix ourselves,
+# avoiding a hard dependency on the `image` crate for QR generation.
+qrcode = { version = "0.14", default-features = false }
+
 # Windows-only native launch + foreground-focus engine (ShellExecuteExW etc.).
 # Target-gated so `cargo fmt`/`clippy`/`check` work on the Linux host too.
 [target.'cfg(windows)'.dependencies]

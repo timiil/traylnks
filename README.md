@@ -56,6 +56,19 @@ TIM-LAPTOP
 
 不区分大小写、精确匹配；`#` 起始为注释，空行忽略；空 `.station` 在所有主机隐藏该目录；父目录不匹配则整个子树跳过。
 
+## 网盘同步（v0.2，阿里云盘）
+
+设置 → Cloud 标签页：用阿里云盘 App 扫码授权，选择云端文件夹（如 `/TrayLnks`），即可在多台机器间双向镜像 `watch_path`。冲突按修改时间「最后写入胜出」，删除会双向传播。刷新间隔默认 30 分钟（可选 15/60/120）。
+
+<p align="center">
+  <img src="docs/screenshot1.png" alt="TrayLnks Cloud 同步设置（阿里云盘扫码授权）" width="480">
+</p>
+
+- **零注册**：走网页客户端公开扫码登录（[aligo](https://github.com/foyoux/aligo) 同款流程），无需在阿里云盘开放平台注册应用、无需 AppKey。
+- 架构按 `CloudProvider` trait 设计，当前仅实现阿里云盘，后续可扩展其他供应商。
+- 凭据存入系统凭据管理器（Windows Credential Manager / DPAPI），**不会**写入 `config.toml`（该文件会序列化到前端）。
+- 已知限制：`.lnk` 内嵌机器相关绝对路径，跨机同步后目标可能无法解析；`.cmd`/`.ps1` 可移植性更好。
+
 ## 运行
 
 ```powershell
@@ -65,14 +78,18 @@ Start-Process .\traylnks.exe
 首次启动后在 **Settings → Paths → Browse...** 选择监听目录并保存，菜单立即重建并开始监听。配置由设置界面管理：
 
 ```text
-%APPDATA%\com.traylnks.app\config.toml
+%APPDATA%\com.traylnks.launcher\config.toml
 ```
 
 ```toml
-watch_path      = "D:\\TrayLauncher"
-cloud_path      = "D:\\OneDrive\\TrayLauncherSync"   # 可选同步路径
-start_minimized = true
-autostart       = false
+watch_path              = "D:\\TrayLauncher"
+start_minimized         = true
+autostart               = false
+# 网盘同步（v0.2，可选）
+cloud_enabled           = false
+cloud_provider          = "aliyun"
+cloud_folder            = "/TrayLnks"     # 阿里云盘里的同步根目录，首次同步时不存在则创建
+cloud_sync_interval_min = 30              # 自动同步间隔（分钟）
 ```
 
 ## 项目结构
@@ -190,6 +207,19 @@ TIM-LAPTOP
 
 Case-insensitive, exact match; `#` lines are comments, blank lines ignored; an empty `.station` hides the folder everywhere; if a parent doesn't match, the whole subtree is skipped.
 
+## Cloud Sync (v0.2, Aliyun Drive)
+
+Settings → Cloud tab: authorize by scanning a QR with the Aliyun Drive app, pick a cloud folder (e.g. `/TrayLnks`), and `watch_path` is two-way mirrored across machines. Conflicts resolve last-write-wins by mtime; deletions propagate both ways. Refresh interval defaults to 30 min (15/60/120 selectable).
+
+<p align="center">
+  <img src="docs/screenshot1.png" alt="TrayLnks Cloud sync settings (Aliyun Drive QR auth)" width="480">
+</p>
+
+- **Zero registration**: uses the web-client public QR login (the same flow as [aligo](https://github.com/foyoux/aligo)) — no app registration or AppKey needed.
+- Built around a `CloudProvider` trait — only Aliyun Drive is implemented today; other providers are additive later.
+- Tokens live in the OS credential store (Windows Credential Manager / DPAPI) and **never** in `config.toml` (which is serialized to the webview).
+- Known limitation: `.lnk` files embed machine-specific absolute target paths and may not resolve on another machine after sync; `.cmd`/`.ps1` are more portable.
+
 ## Running
 
 ```powershell
@@ -199,14 +229,18 @@ Start-Process .\traylnks.exe
 On first launch, pick a folder via **Settings → Paths → Browse...** and save — the menu rebuilds and starts watching. Config is managed by the settings UI:
 
 ```text
-%APPDATA%\com.traylnks.app\config.toml
+%APPDATA%\com.traylnks.launcher\config.toml
 ```
 
 ```toml
-watch_path      = "D:\\TrayLauncher"
-cloud_path      = "D:\\OneDrive\\TrayLauncherSync"   # optional sync path
-start_minimized = true
-autostart       = false
+watch_path              = "D:\\TrayLauncher"
+start_minimized         = true
+autostart               = false
+# Cloud sync (v0.2, optional)
+cloud_enabled           = false
+cloud_provider          = "aliyun"
+cloud_folder            = "/TrayLnks"     # sync root inside the cloud drive; created on first sync if missing
+cloud_sync_interval_min = 30              # auto-sync cadence in minutes
 ```
 
 ## Repository Layout

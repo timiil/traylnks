@@ -29,11 +29,11 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_MENU,
 };
 use windows::Win32::UI::Shell::{
-    ShellExecuteExW, SHELLEXECUTEINFOW, SEE_MASK_FLAG_LOG_USAGE, SEE_MASK_NOCLOSEPROCESS,
+    ShellExecuteExW, SEE_MASK_FLAG_LOG_USAGE, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AllowSetForegroundWindow, ASFW_ANY, BringWindowToTop, EnumWindows, GetWindowThreadProcessId,
-    IsWindowVisible, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOWNORMAL,
+    AllowSetForegroundWindow, BringWindowToTop, EnumWindows, GetWindowThreadProcessId,
+    IsWindowVisible, SetForegroundWindow, ShowWindow, ASFW_ANY, SW_RESTORE, SW_SHOWNORMAL,
 };
 
 /// Launch `path` (a `.lnk`/`.cmd`/`.ps1`) and try to foreground its window.
@@ -77,7 +77,9 @@ pub fn launch_and_focus(path: &Path) -> Result<(), String> {
         nShow: SW_SHOWNORMAL.0,
         ..Default::default()
     };
-    unsafe { ShellExecuteExW(&mut info).map_err(|e| e.to_string())?; }
+    unsafe {
+        ShellExecuteExW(&mut info).map_err(|e| e.to_string())?;
+    }
 
     // 4. PID; close our handle (we only need the PID for the window lookup).
     let hprocess = info.hProcess;
@@ -162,7 +164,10 @@ unsafe fn spoof_alt() {
 
 /// UTF-16 + NUL terminator.
 fn wide(s: &str) -> Vec<u16> {
-    OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+    OsStr::new(s)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
 }
 
 fn to_wide(os: &OsStr) -> Vec<u16> {
