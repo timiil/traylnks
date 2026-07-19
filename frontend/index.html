@@ -27,7 +27,7 @@
           <span>Start minimized to tray</span>
           <input type="checkbox" id="startMinimized" />
         </label>
-        <p class="hint">Changes are saved automatically.</p>
+        <p class="hint">Edits are applied when you press Apply.</p>
       </section>
 
       <!-- Paths -->
@@ -39,8 +39,6 @@
             <button id="browseWatch">Browse…</button>
           </div>
         </div>
-        <button id="savePaths" class="primary">Save</button>
-        <p id="pathStatus" class="hint"></p>
       </section>
 
       <!-- Cloud -->
@@ -99,6 +97,14 @@
         <button id="refreshNow">Refresh menu now</button>
       </section>
     </main>
+
+    <footer class="footer">
+      <span id="footerStatus" class="hint"></span>
+      <div class="footer-actions">
+        <button id="cancelBtn">Cancel</button>
+        <button id="applyBtn" class="primary">Apply</button>
+      </div>
+    </footer>
   </div>
   <script src="settings.js"></script>
 </body>

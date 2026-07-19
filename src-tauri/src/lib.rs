@@ -58,6 +58,7 @@ pub fn run() {
             commands::pick_watch_folder,
             commands::open_launcher_folder,
             commands::show_settings_cmd,
+            commands::hide_settings,
             commands::set_autostart,
             commands::cloud_start_auth,
             commands::cloud_poll_auth,

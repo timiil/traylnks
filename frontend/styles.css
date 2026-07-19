@@ -98,3 +98,15 @@ code { background: #15151f; padding: 1px 5px; border-radius: 4px; }
 dl { margin: 0; }
 dt { color: var(--muted); margin-top: 10px; font-size: 12px; }
 dd { margin: 2px 0 0 0; font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; word-break: break-all; }
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #181828;
+  border-top: 1px solid var(--border);
+}
+
+.footer-actions { display: flex; gap: 8px; }

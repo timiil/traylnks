@@ -1,10 +1,19 @@
 // TrayLnks Settings — vanilla JS, talks to the Rust backend via Tauri IPC.
+//
+// Save model: the config-bound controls (autostart, start minimized, watch
+// path, cloud folder/interval/enable) are a buffered draft. Nothing reaches the
+// backend until Apply. Action buttons (authorize, disconnect, sync now, list
+// folders, refresh menu, copy host) stay immediate — they aren't config. The
+// `saved` snapshot is the last-applied config; it backs Cancel (revert) and
+// lets Apply detect no-op clicks.
 const invoke = window.__TAURI__.core.invoke;
+const listen = window.__TAURI__.event.listen;
 
 const $ = (id) => document.getElementById(id);
 
 let qrPollTimer = null;
 let statusTimer = null;
+let saved = null; // last-applied Config snapshot
 
 // ---- tab switching ----
 document.querySelectorAll(".tab").forEach((btn) => {
@@ -24,41 +33,126 @@ document.querySelectorAll(".tab").forEach((btn) => {
   });
 });
 
-// ---- General ----
-$("autostart").addEventListener("change", async (e) => {
-  try {
-    await invoke("set_autostart", { enabled: e.target.checked });
-  } catch (err) {
-    alert("Autostart: " + err);
-    e.target.checked = !e.target.checked;
-  }
-});
+// ---- draft helpers (DOM is the draft) ----
+function readDom() {
+  return {
+    watch_path: $("watchPath").value.trim() || null,
+    start_minimized: $("startMinimized").checked,
+    autostart: $("autostart").checked,
+    cloud_folder: $("cloudFolder").value.trim() || null,
+    cloud_sync_interval_min: parseInt($("cloudInterval").value, 10) || 30,
+    cloud_enabled: $("cloudEnable").checked,
+  };
+}
 
-$("startMinimized").addEventListener("change", async (e) => {
+function renderFromConfig(cfg) {
+  $("watchPath").value = cfg.watch_path ? cfg.watch_path.toString() : "";
+  $("startMinimized").checked = !!cfg.start_minimized;
+  $("autostart").checked = !!cfg.autostart;
+  $("cloudFolder").value = cfg.cloud_folder ?? "";
+  $("cloudInterval").value = String(cfg.cloud_sync_interval_min ?? 30);
+  $("cloudEnable").checked = !!cfg.cloud_enabled;
+}
+
+function isDirty() {
+  if (!saved) return false;
+  const d = readDom();
+  return (
+    d.watch_path !== (saved.watch_path ? saved.watch_path.toString() : null) ||
+    d.start_minimized !== !!saved.start_minimized ||
+    d.autostart !== !!saved.autostart ||
+    d.cloud_folder !== (saved.cloud_folder ?? null) ||
+    d.cloud_sync_interval_min !== (saved.cloud_sync_interval_min ?? 30) ||
+    d.cloud_enabled !== !!saved.cloud_enabled
+  );
+}
+
+// Reset every control to the persisted backend state. The single path used by
+// init(), Cancel, and the settings://shown reopen listener — so a hidden window
+// never reopens with a stale draft.
+async function reloadFromBackend() {
+  stopQrPoll();
+  clearInterval(statusTimer);
+  statusTimer = null;
+  saved = await invoke("get_config");
+  renderFromConfig(saved);
+  $("qrImg").hidden = true;
+  $("qrHint").hidden = true;
+  $("footerStatus").textContent = "";
+  refreshDiagnostics();
+  if ($("cloud").classList.contains("active")) {
+    refreshCloudStatus();
+    statusTimer = setInterval(refreshCloudStatus, 5000);
+  }
+}
+
+// ---- Apply / Cancel ----
+$("applyBtn").addEventListener("click", applyChanges);
+$("cancelBtn").addEventListener("click", cancel);
+
+async function applyChanges() {
+  if (!isDirty()) {
+    $("footerStatus").textContent = "No changes to apply.";
+    return;
+  }
+  const draft = readDom();
+
+  // Validate the cloud folder (format only) before persisting.
+  if (draft.cloud_folder) {
+    try {
+      draft.cloud_folder = await invoke("cloud_set_folder", { path: draft.cloud_folder });
+    } catch (e) {
+      $("footerStatus").textContent = "Cloud folder invalid: " + e;
+      return;
+    }
+  }
+
+  // Merge the draft onto a fresh full config so provider/non-UI fields survive.
   const cfg = await invoke("get_config");
-  cfg.start_minimized = e.target.checked;
-  await invoke("set_config", { cfg });
-});
+  cfg.watch_path = draft.watch_path;
+  cfg.start_minimized = draft.start_minimized;
+  cfg.autostart = draft.autostart;
+  cfg.cloud_folder = draft.cloud_folder;
+  cfg.cloud_sync_interval_min = draft.cloud_sync_interval_min;
+  cfg.cloud_enabled = draft.cloud_enabled;
+
+  // Atomic persist + watcher/cloud/menu restart.
+  try {
+    await invoke("set_config", { cfg });
+  } catch (e) {
+    $("footerStatus").textContent = "Save failed: " + e;
+    return;
+  }
+
+  // OS launch-agent toggle is the one side effect outside the config file —
+  // only touch it when the preference actually changed.
+  if (cfg.autostart !== !!saved.autostart) {
+    try {
+      await invoke("set_autostart", { enabled: cfg.autostart });
+    } catch (e) {
+      $("footerStatus").textContent = "Saved, but autostart toggle failed: " + e;
+      saved = await invoke("get_config");
+      refreshDiagnostics();
+      refreshCloudStatus();
+      return;
+    }
+  }
+
+  saved = await invoke("get_config");
+  $("footerStatus").textContent = "Saved.";
+  refreshDiagnostics();
+  refreshCloudStatus();
+}
+
+async function cancel() {
+  await reloadFromBackend();
+  await invoke("hide_settings");
+}
 
 // ---- Paths ----
 $("browseWatch").addEventListener("click", async () => {
   const picked = await invoke("pick_watch_folder");
   if (picked) $("watchPath").value = picked;
-});
-
-$("savePaths").addEventListener("click", async () => {
-  // Re-fetch full config so we don't clobber the cloud_* fields.
-  try {
-    const cfg = await invoke("get_config");
-    cfg.watch_path = $("watchPath").value.trim() || null;
-    cfg.start_minimized = $("startMinimized").checked;
-    cfg.autostart = $("autostart").checked;
-    await invoke("set_config", { cfg });
-    $("pathStatus").textContent = "Saved. Menu rebuilt.";
-    refreshDiagnostics();
-  } catch (err) {
-    $("pathStatus").textContent = "Error: " + err;
-  }
 });
 
 // ---- Cloud ----
@@ -91,15 +185,13 @@ async function refreshCloudStatus() {
   $("cloudDisconnectBtn").hidden = !s.connected;
   $("cloudAuthBtn").hidden = s.connected;
   $("cloudReauthBtn").hidden = !s.connected;
+  // Editability of the cloud-folder draft tracks real connection state.
   $("cloudFolder").disabled = !s.connected;
   $("cloudRefreshFolders").disabled = !s.connected;
-  $("cloudEnable").checked = !!s.enabled;
-  $("cloudInterval").value = String(s.interval_min || 30);
-  // Reflect the saved folder, but don't clobber while the user is typing.
-  const folderInput = $("cloudFolder");
-  if (document.activeElement !== folderInput) {
-    folderInput.value = s.cloud_folder ?? "";
-  }
+
+  // NOTE: do not push saved config back into the editable controls here —
+  // #cloudFolder/#cloudInterval/#cloudEnable hold the user's draft, which a
+  // poll would otherwise clobber every 5s.
 
   let line;
   if (s.in_progress) {
@@ -185,50 +277,6 @@ $("cloudRefreshFolders").addEventListener("click", async () => {
   }
 });
 
-$("cloudFolder").addEventListener("change", async () => {
-  const val = $("cloudFolder").value.trim();
-  if (!val) {
-    // clearing the folder
-    try {
-      const cfg = await invoke("get_config");
-      cfg.cloud_folder = null;
-      await invoke("set_config", { cfg });
-      refreshCloudStatus();
-    } catch (e) {
-      $("cloudStatusLine").textContent = "Error: " + e;
-    }
-    return;
-  }
-  try {
-    const canon = await invoke("cloud_set_folder", { path: val });
-    $("cloudFolder").value = canon;
-    const cfg = await invoke("get_config");
-    cfg.cloud_folder = canon;
-    await invoke("set_config", { cfg });
-    refreshCloudStatus();
-  } catch (e) {
-    $("cloudStatusLine").textContent = "Error: " + e;
-  }
-});
-
-$("cloudInterval").addEventListener("change", async (e) => {
-  const cfg = await invoke("get_config");
-  cfg.cloud_sync_interval_min = parseInt(e.target.value, 10) || 30;
-  await invoke("set_config", { cfg });
-});
-
-$("cloudEnable").addEventListener("change", async (e) => {
-  const cfg = await invoke("get_config");
-  cfg.cloud_enabled = e.target.checked;
-  try {
-    await invoke("set_config", { cfg });
-    refreshCloudStatus();
-  } catch (err) {
-    $("cloudStatusLine").textContent = "Error: " + err;
-    e.target.checked = !e.target.checked;
-  }
-});
-
 $("syncNowBtn").addEventListener("click", async () => {
   try {
     await invoke("sync_now");
@@ -271,17 +319,13 @@ $("refreshNow").addEventListener("click", async () => {
 
 // ---- initial load ----
 async function init() {
-  const cfg = await invoke("get_config");
-  $("watchPath").value = cfg.watch_path ?? "";
-  $("startMinimized").checked = !!cfg.start_minimized;
-  $("autostart").checked = !!cfg.autostart;
-  $("cloudFolder").value = cfg.cloud_folder ?? "";
-  $("cloudInterval").value = String(cfg.cloud_sync_interval_min ?? 30);
-  $("cloudEnable").checked = !!cfg.cloud_enabled;
-
   $("hostname").value = await invoke("get_hostname");
-  refreshDiagnostics();
-  refreshCloudStatus();
+  await reloadFromBackend();
+  // Reopen reload: every show_settings() path emits this, so a hidden window
+  // never reopens with a stale draft.
+  await listen("settings://shown", () => {
+    reloadFromBackend();
+  });
 }
 
 init();

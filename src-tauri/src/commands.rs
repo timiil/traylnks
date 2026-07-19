@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::state::AppState;
 use serde::Serialize;
-use tauri::{AppHandle, Manager, Wry};
+use tauri::{AppHandle, Emitter, Manager, Wry};
 
 #[derive(Serialize)]
 pub struct Diagnostics {
@@ -199,10 +199,23 @@ pub fn show_settings_cmd(app: AppHandle<Wry>) {
     show_settings(&app);
 }
 
+/// Hide the settings window without destroying it (matches the close→hide
+/// strategy in `lib.rs`, so reopen stays instant). Called by the Cancel button.
+#[tauri::command]
+pub fn hide_settings(app: AppHandle<Wry>) {
+    if let Some(w) = app.get_webview_window("settings") {
+        let _ = w.hide();
+    }
+}
+
 /// Show (and focus) the settings window. Also the single-instance callback.
+/// Emits `settings://shown` so the frontend can reload config from disk — every
+/// reopen path (single instance, tray, command) funnels through here, so a stale
+/// in-memory draft never survives a hide→show round trip.
 pub fn show_settings(app: &AppHandle<Wry>) {
     if let Some(w) = app.get_webview_window("settings") {
         let _ = w.show();
         let _ = w.set_focus();
+        let _ = app.emit("settings://shown", ());
     }
 }
