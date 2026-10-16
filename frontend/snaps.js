@@ -245,6 +245,17 @@ function acceptStatus(status) {
 }
 
 $("refreshSnaps").addEventListener("click", () => refreshRecords());
+async function closeViewer() {
+  try { await invoke("hide_snaps"); }
+  catch (error) { showError(`无法关闭窗口：${error}`); }
+}
+$("closeSnaps").addEventListener("click", closeViewer);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !event.defaultPrevented && !event.isComposing) {
+    event.preventDefault();
+    closeViewer();
+  }
+});
 $("takeSnap").addEventListener("click", async () => {
   $("takeSnap").disabled = true;
   try { await invoke("take_snap"); }

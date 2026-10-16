@@ -95,7 +95,7 @@ impl RestoreForeground {
             return None;
         }
         self.restored = true;
-        if !IsWindow(Some(self.hwnd)).as_bool() {
+        if !IsWindow(Some(self.hwnd)).as_bool() || !IsWindowVisible(self.hwnd).as_bool() {
             return None;
         }
         let mut error = None;

@@ -227,6 +227,15 @@ pub async fn get_snap_image(
     .map_err(|e| e.to_string())?
 }
 
+/// Close the viewer back to the tray without stopping an active capture.
+#[tauri::command]
+pub fn hide_snaps(app: AppHandle<Wry>) -> Result<(), String> {
+    app.get_webview_window("snaps")
+        .ok_or_else(|| "ViewSnaps window is unavailable".to_string())?
+        .hide()
+        .map_err(|error| format!("Hide ViewSnaps: {error}"))
+}
+
 pub fn show_viewer(app: &AppHandle<Wry>) {
     if let Some(window) = app.get_webview_window("snaps") {
         let _ = window.show();

@@ -42,7 +42,7 @@ pub fn run() {
         .setup(state::setup)
         .on_menu_event(tray::handle_menu_event)
         .on_window_event(|window, event| {
-            // Hide Settings on close instead of destroying it (re-open is instant).
+            // Close utility windows back to the tray so they can be reopened.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if matches!(window.label(), "settings" | "snaps") {
                     let _ = window.hide();
@@ -73,6 +73,7 @@ pub fn run() {
             snaps::list_snaps,
             snaps::get_snap_detail,
             snaps::get_snap_image,
+            snaps::hide_snaps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TrayLnks");

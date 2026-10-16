@@ -65,6 +65,8 @@ TIM-LAPTOP
 2. **选择记录**：托盘 → **ViewSnaps** 打开独立窗口。Table 默认按时间从新到旧列出快照编码、时间、窗口数、tab 数和采集结果；点击一条记录，再从左侧按窗口分组的 tab 清单选择明细。重启后无需先打开原来的终端，即可查看已有快照。
 3. **查看明细**：切换 **截图**、**视区文字**、**记录文本**。截图支持适应窗口、原始尺寸及缩放；视区文字可选择、复制；记录文本汇总整条快照的窗口、tab 和错误信息。可点击 **刷新** 重新读取本地记录。
 
+查看完毕后，点击右上角 **关闭** 或按 **Esc** 返回托盘；也可使用系统标题栏的关闭按钮。关闭查看窗口不会退出 TrayLnks 或中断正在进行的采集，之后可从托盘再次打开 **ViewSnaps**。
+
 <p align="center">
   <img src="docs/snaps-overview.png" alt="ViewSnaps 快照表格、Tab 清单与截图预览，敏感信息已打码" width="960">
 </p>
@@ -240,6 +242,8 @@ Case-insensitive, exact match; `#` lines are comments, blank lines ignored; an e
 1. **Capture**: click **TakeSnap** in the tray menu or ViewSnaps window. Capture briefly switches windows and tabs, then restores their selected tabs, window states, and focus. It sends no terminal input, does not scroll, and leaves the clipboard untouched. Wait for capture to finish before using the terminals; progress and results appear in the tray tooltip and viewer.
 2. **Select**: open **ViewSnaps** from the tray. Its table lists snapshots newest first, with their IDs, times, window/tab counts, and results. Select a record, then a tab grouped under its window in the sidebar. Previously captured terminals do not need to be running to view their snapshots.
 3. **Inspect**: switch between **截图** (screenshot), **视区文字** (visible text), and **记录文本** (record text). Images support fit-to-window, original size, and zoom. Visible text can be selected or copied; record text combines all windows, tabs, and errors. **刷新** refreshes the local list.
+
+Click **关闭** (close) at the top right, press **Esc**, or use the native title-bar close button to return to the tray. Closing the viewer keeps TrayLnks and any active capture running; reopen **ViewSnaps** from the tray whenever needed.
 
 <p align="center">
   <img src="docs/snaps-overview.png" alt="ViewSnaps snapshot table, tab list and screenshot preview with private information redacted" width="960">
