@@ -8,6 +8,7 @@ mod launch;
 #[cfg(windows)]
 mod launch_windows;
 mod menu_tree;
+mod snaps;
 mod state;
 mod station;
 mod tray;
@@ -43,7 +44,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Hide Settings on close instead of destroying it (re-open is instant).
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "settings" {
+                if matches!(window.label(), "settings" | "snaps") {
                     let _ = window.hide();
                     api.prevent_close();
                 }
@@ -67,6 +68,11 @@ pub fn run() {
             commands::cloud_set_folder,
             commands::get_cloud_status,
             commands::sync_now,
+            snaps::take_snap,
+            snaps::get_snap_status,
+            snaps::list_snaps,
+            snaps::get_snap_detail,
+            snaps::get_snap_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TrayLnks");

@@ -9,7 +9,7 @@ use crate::menu_tree::{Kind, MenuNode};
 use std::path::PathBuf;
 use tauri::menu::{IconMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Wry};
+use tauri::{AppHandle, Manager, Wry};
 
 pub const TRAY_ID: &str = "main";
 const RUN_PREFIX: &str = "run:";
@@ -26,6 +26,9 @@ pub fn build_tray(app: &AppHandle<Wry>) -> tauri::Result<()> {
         .tooltip("TrayLnks")
         .menu(&menu)
         .show_menu_on_left_click(true)
+        .on_tray_icon_event(|tray, _event| {
+            crate::snaps::remember_foreground(tray.app_handle());
+        })
         .build(app)?;
     Ok(())
 }
@@ -79,6 +82,13 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
             }
         }
         "settings" => crate::commands::show_settings(app),
+        "take_snap" => {
+            if let Err(error) = crate::snaps::take_snap(app.clone()) {
+                log::error!("TakeSnap: {error}");
+                snap_tooltip(app, &error);
+            }
+        }
+        "view_snaps" => crate::snaps::show_viewer(app),
         "exit" => app.exit(0),
         _ => {}
     }
@@ -112,6 +122,31 @@ pub fn build_menu(app: &AppHandle<Wry>, tree: &MenuNode) -> tauri::Result<Menu<W
         owned.push(build_item(app, child)?);
     }
     owned.push(Box::new(PredefinedMenuItem::separator(app)?));
+    let capturing = app
+        .state::<crate::state::AppState>()
+        .snaps
+        .job
+        .lock()
+        .running;
+    owned.push(Box::new(MenuItem::with_id(
+        app,
+        "take_snap",
+        if capturing {
+            "TakeSnap (capturing…)"
+        } else {
+            "TakeSnap"
+        },
+        !capturing,
+        None::<&str>,
+    )?));
+    owned.push(Box::new(MenuItem::with_id(
+        app,
+        "view_snaps",
+        "ViewSnaps",
+        true,
+        None::<&str>,
+    )?));
+    owned.push(Box::new(PredefinedMenuItem::separator(app)?));
     owned.push(Box::new(MenuItem::with_id(
         app,
         "refresh",
@@ -143,6 +178,25 @@ pub fn build_menu(app: &AppHandle<Wry>, tree: &MenuNode) -> tauri::Result<Menu<W
 
     let refs: Vec<&dyn IsMenuItem<Wry>> = owned.iter().map(|b| b.as_ref()).collect();
     Menu::with_items(app, &refs)
+}
+
+/// Keep success/failure feedback available without opening another window or
+/// taking focus away from the terminal whose state was just restored.
+pub fn snap_tooltip(app: &AppHandle<Wry>, message: &str) {
+    // Windows limits notification-icon tooltips to 128 UTF-16 code units.
+    let mut tooltip = String::from("TrayLnks · ");
+    for c in message.chars() {
+        if tooltip.encode_utf16().count() + c.len_utf16() > 120 {
+            break;
+        }
+        tooltip.push(c);
+    }
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(tray) = handle.tray_by_id(TRAY_ID) {
+            let _ = tray.set_tooltip(Some(&tooltip));
+        }
+    });
 }
 
 fn build_item(app: &AppHandle<Wry>, node: &MenuNode) -> tauri::Result<Box<dyn IsMenuItem<Wry>>> {

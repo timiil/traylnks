@@ -18,6 +18,19 @@
         "resizable": true,
         "center": true,
         "decorations": true
+      },
+      {
+        "label": "snaps",
+        "title": "TrayLnks — ViewSnaps",
+        "url": "snaps.html",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 520,
+        "visible": false,
+        "resizable": true,
+        "center": true,
+        "decorations": true
       }
     ],
     "security": {

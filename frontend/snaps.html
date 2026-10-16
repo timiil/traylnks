@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrayLnks — ViewSnaps</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="snaps.css" />
+</head>
+<body>
+  <div class="snaps-app">
+    <header class="snaps-header">
+      <div><h1>ViewSnaps</h1><p class="hint">终端快照 · 按采集时间从新到旧</p></div>
+      <div class="snaps-actions">
+        <button id="refreshSnaps">刷新</button>
+        <button id="takeSnap" class="primary">TakeSnap</button>
+      </div>
+    </header>
+    <div id="captureStatus" class="capture-status" role="status" aria-live="polite">快照保存在本机，重启后仍可查看。</div>
+    <section class="snap-list" aria-label="快照记录">
+      <table>
+        <thead><tr><th>快照编码</th><th>采集时间</th><th>窗口</th><th>Tab</th><th>结果</th></tr></thead>
+        <tbody id="snapRows"></tbody>
+      </table>
+      <p id="listStatus" class="empty-state" role="status">正在加载快照…</p>
+    </section>
+    <section class="snap-details" aria-label="快照明细">
+      <aside id="tabList" class="snap-tab-list" aria-label="窗口和 Tab"><p class="hint">选择一条快照，查看终端开启情况。</p></aside>
+      <div class="snap-content">
+        <div class="detail-header">
+          <div class="detail-heading"><strong id="detailTitle">选择快照</strong><span id="detailMeta" class="hint"></span></div>
+          <div class="snaps-actions" role="group" aria-label="明细内容">
+            <button data-view="image" class="active" aria-pressed="true">截图</button>
+            <button data-view="text" aria-pressed="false">视区文字</button>
+            <button data-view="record" aria-pressed="false">记录文本</button>
+          </div>
+        </div>
+        <p id="detailErrors" class="detail-errors" hidden></p>
+        <div id="imagePanel" class="detail-panel">
+          <div class="image-toolbar">
+            <button id="fitImage">适应窗口</button><button id="actualImage">原始尺寸</button>
+            <button id="zoomOut" aria-label="缩小">−</button><span id="zoomLabel" class="hint">适应窗口</span><button id="zoomIn" aria-label="放大">＋</button>
+          </div>
+          <div id="imageViewport" class="image-viewport"><p id="imageStatus" class="empty-state">选择 Tab 查看截图。</p><img id="snapImage" alt="终端当前视区截图" hidden /></div>
+        </div>
+        <div id="textPanel" class="detail-panel" hidden>
+          <div class="text-toolbar"><span id="textKind" class="hint">当前视区的可复制文字</span><button id="copyText">复制文本</button></div>
+          <pre id="snapText" tabindex="0">选择 Tab 查看文字。</pre>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="snaps.js"></script>
+</body>
+</html>

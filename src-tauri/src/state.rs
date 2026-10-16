@@ -18,6 +18,7 @@ pub struct AppState {
     /// Stored so the watcher is not dropped (dropping stops watching).
     pub watcher: Mutex<Option<crate::watcher::AppDebouncer>>,
     pub watcher_ok: AtomicBool,
+    pub snaps: crate::snaps::SnapState,
 
     // -- cloud sync --
     /// The active cloud provider (constructed from config at startup).
@@ -42,6 +43,7 @@ impl AppState {
             last_scan: Mutex::new(None),
             watcher: Mutex::new(None),
             watcher_ok: AtomicBool::new(false),
+            snaps: crate::snaps::SnapState::default(),
             provider,
             sync_status: RwLock::new(SyncStatus::default()),
             sync_now: Mutex::new(None),

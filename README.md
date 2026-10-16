@@ -15,6 +15,7 @@
 - 启动后尽量把窗口带到前台
 - 同名图片作为图标：`<name>.ico/.png/.jpg/.jpeg`（文件夹也支持，如 `Development/` + `Development.png`）
 - 无同名图标时，按路径哈希从 50 个内置 fallback 图标中稳定分配一个
+- **TakeSnap / ViewSnaps**：保存所有 Windows Terminal 窗口中每个 tab 的当前视区截图和文字，重启后可按时间回看
 - `.station` 文件按 Windows 主机名过滤子树
 - 其他文件被忽略
 
@@ -55,6 +56,30 @@ TIM-LAPTOP
 ```
 
 不区分大小写、精确匹配；`#` 起始为注释，空行忽略；空 `.station` 在所有主机隐藏该目录；父目录不匹配则整个子树跳过。
+
+## 终端快照
+
+**TakeSnap** 为所有 Windows Terminal 窗口的 tab 保存当前视区截图、完整 tab 标题和可复制文字，包括手动打开的终端。即使 tab 停在历史输出中间，也会记录该位置；分屏保留在同一张图中，文字按分屏分别记录。适合关机前保存工作现场，重启后通过 **ViewSnaps** 回看终端的开启情况。
+
+1. **保存现场**：在托盘菜单或 ViewSnaps 窗口点击 **TakeSnap**。采集期间会短暂切换窗口和 tab，完成后恢复原选中 tab、窗口状态及焦点；不会输入命令、主动滚动或修改剪贴板。等待采集结束后再继续操作终端，托盘提示和查看窗口均会显示进度及结果。
+2. **选择记录**：托盘 → **ViewSnaps** 打开独立窗口。Table 默认按时间从新到旧列出快照编码、时间、窗口数、tab 数和采集结果；点击一条记录，再从左侧按窗口分组的 tab 清单选择明细。重启后无需先打开原来的终端，即可查看已有快照。
+3. **查看明细**：切换 **截图**、**视区文字**、**记录文本**。截图支持适应窗口、原始尺寸及缩放；视区文字可选择、复制；记录文本汇总整条快照的窗口、tab 和错误信息。可点击 **刷新** 重新读取本地记录。
+
+<p align="center">
+  <img src="docs/snaps-overview.png" alt="ViewSnaps 快照表格、Tab 清单与截图预览，敏感信息已打码" width="960">
+</p>
+
+<p align="center"><sub>快照列表与截图预览。私人项目标题、主机名及终端正文已打码。</sub></p>
+
+<p align="center">
+  <img src="docs/snaps-text.png" alt="ViewSnaps 视区文字与复制文本功能，敏感信息已打码" width="960">
+</p>
+
+<p align="center"><sub>切换到视区文字，查看各分屏的可复制内容。终端正文已打码。</sub></p>
+
+- **本地保存**：位于 `%APPDATA%\com.traylnks.launcher\snaps\`，每次一个目录，编码为本地时间 `yyyyMMdd-HHmm`；同一分钟重复采集追加 `-02`、`-03`，不会覆盖。目录包含 `manifest.json`、`record.txt` 和各 tab 的 PNG／TXT；仅手动采集、长期保留，不参与启动器目录的云同步。
+- **部分失败**：窗口或 tab 不可访问、关闭或超时，会保留其他已采集内容和失败原因。截图和文字独立记录结果，单项失败不影响查看其余内容；没有发现终端时不生成空记录。
+- **平台与边界**：仅支持 Windows Terminal，要求 Windows 10 1903+／Windows 11；不会自动提权访问管理员终端。快照用于回看，不自动重建终端或恢复命令。各 tab 依次采集，持续输出的画面和文字可能存在短暂时间差。
 
 ## 网盘同步（v0.2，阿里云盘）
 
@@ -166,6 +191,7 @@ A lightweight Windows tray link launcher: map a local folder into a multi-level 
 - Best-effort foreground focus on launch
 - Same-name image as icon: `<name>.ico/.png/.jpg/.jpeg` (folders too, e.g. `Development/` + `Development.png`)
 - Items without a matching icon get a stable path-hashed pick from 50 built-in fallbacks
+- **TakeSnap / ViewSnaps** save every Windows Terminal tab's current viewport image and text for viewing after a restart
 - `.station` files filter a subtree by Windows hostname
 - Other files are ignored
 
@@ -206,6 +232,28 @@ TIM-LAPTOP
 ```
 
 Case-insensitive, exact match; `#` lines are comments, blank lines ignored; an empty `.station` hides the folder everywhere; if a parent doesn't match, the whole subtree is skipped.
+
+## Terminal Snapshots
+
+**TakeSnap** saves the current viewport image, full tab title, and copyable text for every tab in all Windows Terminal windows, including terminals opened outside TrayLnks. A tab scrolled to older output is captured at that position. Split panes share one tab screenshot, with visible text recorded separately for each pane. Save your workspace before shutdown, then use **ViewSnaps** to review it after restarting.
+
+1. **Capture**: click **TakeSnap** in the tray menu or ViewSnaps window. Capture briefly switches windows and tabs, then restores their selected tabs, window states, and focus. It sends no terminal input, does not scroll, and leaves the clipboard untouched. Wait for capture to finish before using the terminals; progress and results appear in the tray tooltip and viewer.
+2. **Select**: open **ViewSnaps** from the tray. Its table lists snapshots newest first, with their IDs, times, window/tab counts, and results. Select a record, then a tab grouped under its window in the sidebar. Previously captured terminals do not need to be running to view their snapshots.
+3. **Inspect**: switch between **截图** (screenshot), **视区文字** (visible text), and **记录文本** (record text). Images support fit-to-window, original size, and zoom. Visible text can be selected or copied; record text combines all windows, tabs, and errors. **刷新** refreshes the local list.
+
+<p align="center">
+  <img src="docs/snaps-overview.png" alt="ViewSnaps snapshot table, tab list and screenshot preview with private information redacted" width="960">
+</p>
+
+<p align="center">
+  <img src="docs/snaps-text.png" alt="ViewSnaps visible text and copy control with private information redacted" width="960">
+</p>
+
+The screenshots above redact private project titles, the hostname, and terminal output.
+
+- **Storage**: `%APPDATA%\com.traylnks.launcher\snaps\`, one directory per capture, named in local time as `yyyyMMdd-HHmm`. Captures in the same minute add `-02`, `-03`, etc. Each contains `manifest.json`, `record.txt`, and per-tab PNG/TXT files. Capture is manual, records are retained, and snapshots do not participate in launcher-folder cloud sync.
+- **Partial failures**: closed, inaccessible, or timed-out windows/tabs retain an error alongside successfully captured content. Images and text have independent results. No empty record is created when no terminals are found.
+- **Requirements**: Windows Terminal on Windows 10 1903+ or Windows 11. No automatic elevation, terminal reconstruction, or command restoration. Tabs are captured sequentially, so continuously updating image and text content may differ slightly in time.
 
 ## Cloud Sync (v0.2, Aliyun Drive)
 
