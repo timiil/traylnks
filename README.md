@@ -15,7 +15,7 @@
 - 启动后尽量把窗口带到前台
 - 同名图片作为图标：`<name>.ico/.png/.jpg/.jpeg`（文件夹也支持，如 `Development/` + `Development.png`）
 - 无同名图标时，按路径哈希从 50 个内置 fallback 图标中稳定分配一个
-- **终端会话监控**：支持 WSL 和直接 SSH 中已接入的 AI CLI，以可配置的 tab 头字符短闪提示待关注状态，同一轮不反复提醒。[使用说明](docs/terminal-monitor.md)
+- **终端会话监控**：监控 WSL／直接 SSH 中已接入的 Codex、Claude Code，通过 tab 标题字符提示回复结束、等待输入、静默或明确异常；扫描频率可配，支持已阅、忽略本轮和暂停。[使用说明](docs/terminal-monitor.md)
 - **TakeSnap / ViewSnaps**：保存所有 Windows Terminal 窗口中每个 tab 的当前视区截图和文字，重启后可按时间回看
 - `.station` 文件按 Windows 主机名过滤子树
 - 其他文件被忽略
@@ -60,11 +60,46 @@ TIM-LAPTOP
 
 ## 终端会话监控
 
-在 **Settings → Monitoring** 配置扫描间隔（默认 10 秒）、安静阈值（默认 20 秒）和 tab 头闪动时长（默认 6 秒，0 为只留静态标记）。明确的完成／待输入信号即时处理；托盘只短暂变色 1 秒，至多每分钟一次，可关闭。
+同时运行多个 AI CLI 时，TrayLnks 会在需要关注的 **tab 标题**上显示状态，方便你找到等待下一步的会话。明确的回复结束、待输入信号来自工具的生命周期 hooks；输出静默作为兜底，避免仅凭“不刷屏了”就判定任务完成或断线。监控在后台进行，不切换 tab、不抢焦点、不向终端输入命令。
 
-先展开 **Connect WSL and SSH sessions → Prepare setup commands**，按生成的命令安装 Codex／Claude Code hooks，并在各 tab 启动监控 shell。SSH 远端需要 Python 3 和同一份桥接脚本。已有会话通过监控入口重新接入；不会轮流切换 tab 读屏。
+| 标题标记 | 含义 |
+| --- | --- |
+| `✓` | 本轮回复结束，等待下一步；不保证整项任务已成功 |
+| `?` | 明确等待用户输入、授权或确认 |
+| `~` | 超过静默阈值未见有效输出，可能仍在计算或等待网络；完成／断链均未确认 |
+| `!` | 明确的终止错误或 SSH 异常退出，可在会话列表查看原因 |
 
-`✓` 表示本轮回复结束，`?` 表示明确等待输入或授权，`~` 仅表示安静、结果未确认，`!` 表示明确异常。闪完留下静态标记，可在托盘或 Monitoring 页 **Mark read / Ignore turn / Pause tab**。普通 shell 默认不监控，可手动开启。详细接入、边界及测试见 [终端监控说明](docs/terminal-monitor.md)。
+提醒时，状态符与 `·` 每 500 毫秒交替，默认持续 6 秒，再留下静态标记。托盘可辅助短暂变色 1 秒，至少间隔 60 秒；多个会话同时结束时合并提示，冷却期内不排队补闪。
+
+在 **Settings → Monitoring** 调整监控开关和以下选项，按 **Apply** 保存，**Cancel** 撤销未保存的设置：
+
+| 配置项 | 默认值 | 范围／行为 |
+| --- | --- | --- |
+| Scan interval（扫描间隔） | 10 秒 | 1–3600 秒，控制静默检查频率 |
+| Quiet threshold（静默阈值） | 20 秒 | 1–86400 秒，控制多久没有有效输出才提示 |
+| Tab header flash（标题闪动时长） | 6 秒 | 0–300 秒，0 表示仅保留静态标记 |
+| Also pulse the tray icon briefly（托盘辅助提示） | 开启 | 可关闭；开启时固定短闪 1 秒、至少间隔 60 秒 |
+
+静默提示最多会额外等待一个扫描间隔；明确的 hook 状态即时处理，不等待下一次扫描。
+
+**首次接入：**
+
+1. 打开 **Settings → Monitoring → Connect WSL and SSH sessions**，点击 **Prepare setup commands**。此操作导出 exe 内嵌的桥接脚本并生成命令，不自动安装 hooks。
+2. 在 WSL 运行所用工具的 `install-hooks --tool codex` 或 `--tool claude` 命令，按工具要求审核／信任 hooks。安装会合并已有配置、备份原文件，重复执行不会重复添加相同命令。
+3. 在各 tab 运行生成的 `shell --state-dir ...` 命令，再在该监控 shell 中启动或重启 Codex／Claude Code。已接入的 AI 会话自动监控；普通已接入 shell 默认关闭，可在列表点击 **Enable tab** 开启。
+4. 使用 SSH 时，将生成命令中的 `user@host` 替换为实际目标，按命令复制脚本、在远端安装 hooks，再通过生成的 `ssh --state-dir ... -- user@host` 入口连接。连接本身也受监控，包括 AI CLI 启动前的连接失败。
+
+WSL 和远端 Linux 均需 Python 3.8+，工具版本需支持对应 hooks。原先直接启动的 CLI 不会自动接入，需要从监控入口重新启动；SSH 需要重新连接。
+
+**减少重复打扰：**同一轮最多主动提醒一次，后续状态升级只更新静态标记；下一轮请求开始后重新布防。托盘会话菜单或 Monitoring 页可执行以下操作，会话操作即时生效：
+
+- **Mark read**：清除当前标记，本轮不再闪动；后续状态升级仍可显示新的静态标记。
+- **Ignore turn**：忽略本轮全部后续标记，下一轮自动恢复。
+- **Pause tab / Resume**：持续暂停该 tab，直到手动恢复；恢复时不补闪旧事件。TrayLnks 重启也不补闪历史事件。
+
+当前支持 Windows Terminal 内的 WSL 本地会话，以及从 WSL 发起的直接 SSH Linux 会话，每个 tab 对应一个监控 shell；原生 PowerShell、tmux/screen、分屏聚合不在首版范围。手动固定 tab 标题或 `suppressApplicationTitle` 可能遮住标题标记。观察端心跳失效会显示 **Observer unavailable**，与确定断链分开呈现。
+
+监控数据保存在 `%APPDATA%\com.traylnks.launcher\monitor\`，仅保存会话身份、标题、主机、状态、活动计数和提醒策略，不保存终端正文或用户输入，不参与云同步。远端状态通过现有 SSH 连接回传，不额外开放端口。完整接入、故障处理及验证命令见 [终端监控说明](docs/terminal-monitor.md)。
 
 ## 终端快照
 
@@ -126,6 +161,13 @@ cloud_enabled           = false
 cloud_provider          = "aliyun"
 cloud_folder            = "/TrayLnks"     # 阿里云盘里的同步根目录，首次同步时不存在则创建
 cloud_sync_interval_min = 30              # 自动同步间隔（分钟）
+
+[monitor]
+enabled                 = true
+scan_interval_secs      = 10              # 静默检查频率（秒）
+quiet_threshold_secs    = 20              # 无有效输出的提示阈值（秒）
+tab_flash_duration_secs = 6               # 标题字符闪动时长（秒）；0 为静态标记
+tray_flash_enabled      = true            # 托盘辅助短提示
 ```
 
 ## 项目结构
@@ -141,7 +183,10 @@ src-tauri/         Tauri v2 + Rust 后端
     config.rs      TOML 配置读写
     station.rs     .station 主机过滤
     commands.rs    设置界面调用的 commands
+    monitor/       会话状态机、静默检查、提醒策略与接入命令
 tools/icon-gen/    应用图标源图与生成工具
+tools/terminal-agent/  WSL／SSH PTY 桥接脚本、CLI hooks 与集成测试
+tools/ui-tests/    设置界面浏览器交互测试
 ```
 
 ## 构建
@@ -202,7 +247,7 @@ A lightweight Windows tray link launcher: map a local folder into a multi-level 
 - Best-effort foreground focus on launch
 - Same-name image as icon: `<name>.ico/.png/.jpg/.jpeg` (folders too, e.g. `Development/` + `Development.png`)
 - Items without a matching icon get a stable path-hashed pick from 50 built-in fallbacks
-- **Terminal monitoring** watches connected WSL / direct SSH AI sessions with configurable tab-header character pulses and per-turn suppression. See [setup and behavior](docs/terminal-monitor.md).
+- **Terminal monitoring** watches connected Codex / Claude Code sessions in WSL and direct SSH. Tab-title characters distinguish finished replies, input requests, quiet sessions, and explicit errors, with configurable scans and read / ignore / pause controls. See [setup and behavior](docs/terminal-monitor.md).
 - **TakeSnap / ViewSnaps** save every Windows Terminal tab's current viewport image and text for viewing after a restart
 - `.station` files filter a subtree by Windows hostname
 - Other files are ignored
@@ -244,6 +289,49 @@ TIM-LAPTOP
 ```
 
 Case-insensitive, exact match; `#` lines are comments, blank lines ignored; an empty `.station` hides the folder everywhere; if a parent doesn't match, the whole subtree is skipped.
+
+## Terminal Monitoring
+
+When several AI CLI sessions run at once, TrayLnks marks the **tab title** of sessions that may need attention. Tool lifecycle hooks report finished replies and input requests; quiet-output detection provides a fallback. A lack of output alone does not confirm completion or a lost connection. Monitoring runs in the background without switching tabs, taking focus, or sending terminal input.
+
+| Title marker | Meaning |
+| --- | --- |
+| `✓` | This reply has finished and awaits a next step; overall task success is not guaranteed |
+| `?` | Explicitly waiting for input, permission, or confirmation |
+| `~` | No effective output beyond the quiet threshold; computation or network waits may still be in progress, so completion / disconnection is unconfirmed |
+| `!` | An explicit terminal error or abnormal SSH exit; the session list shows the reason |
+
+The marker alternates with `·` every 500 ms for 6 seconds by default, then remains static. An optional tray accent lasts 1 second, with at least 60 seconds between pulses. Concurrent alerts share a pulse; alerts during the cooldown do not queue more pulses.
+
+Open **Settings → Monitoring** to enable / disable monitoring and adjust these settings. **Apply** saves them; **Cancel** discards unsaved changes.
+
+| Setting | Default | Range / behavior |
+| --- | --- | --- |
+| Scan interval | 10 seconds | 1–3600 seconds; how often to check for quiet sessions |
+| Quiet threshold | 20 seconds | 1–86400 seconds without effective output before attention is needed |
+| Tab header flash | 6 seconds | 0–300 seconds; 0 leaves a static marker only |
+| Also pulse the tray icon briefly | On | Optional; fixed 1-second pulse, at least 60 seconds apart |
+
+Quiet detection can take up to one additional scan interval. Explicit hook events are processed immediately, without waiting for a scan.
+
+**Connect sessions:**
+
+1. Open **Settings → Monitoring → Connect WSL and SSH sessions**, then click **Prepare setup commands**. This exports the bridge embedded in the exe and generates commands; it does not install hooks automatically.
+2. In WSL, run the generated `install-hooks --tool codex` or `--tool claude` command for the tools you use, then review / trust hooks as required by each tool. Installation merges existing settings, backs up the original file, and avoids duplicate commands on repeated runs.
+3. Run the generated `shell --state-dir ...` command in each tab, then start or restart Codex / Claude Code inside that monitored shell. Connected AI sessions are monitored automatically. Ordinary connected shells remain unmonitored until you click **Enable tab**.
+4. For SSH, replace `user@host` in the generated commands, copy the bridge, install hooks on the remote host, and connect through the generated `ssh --state-dir ... -- user@host` entry. The connection itself is monitored, including failures before an AI CLI starts.
+
+WSL and remote Linux hosts require Python 3.8+, and each CLI must support the relevant hooks. Existing CLI processes need to restart through the monitored entry; SSH sessions need to reconnect.
+
+**Control reminders:** each turn gets at most one active alert. Later state changes update the static marker; the next request rearms monitoring. Session actions in the tray menu or Monitoring page take effect immediately:
+
+- **Mark read** clears the current marker without flashing again this turn; later state changes may show a new static marker.
+- **Ignore turn** suppresses all further markers this turn and resets on the next request.
+- **Pause tab / Resume** keeps a tab paused until manually resumed, without replaying old alerts. Restarting TrayLnks also does not replay historical alerts.
+
+This release supports local WSL sessions and direct SSH Linux sessions launched from WSL in Windows Terminal, with one monitored shell per tab. Native PowerShell, tmux/screen, and split-pane aggregation are outside this release's scope. Fixed tab titles or `suppressApplicationTitle` may hide title markers. An expired observer heartbeat shows **Observer unavailable**, separately from a confirmed connection failure.
+
+Monitoring stores session identity, title, host, state, activity counters, and reminder policies under `%APPDATA%\com.traylnks.launcher\monitor\`. It does not retain terminal contents or user input, and does not participate in cloud sync. Remote status travels over the existing SSH connection without an extra listening port. See the [terminal monitoring guide](docs/terminal-monitor.md) (Chinese) for full setup, troubleshooting, and verification commands.
 
 ## Terminal Snapshots
 
@@ -303,6 +391,13 @@ cloud_enabled           = false
 cloud_provider          = "aliyun"
 cloud_folder            = "/TrayLnks"     # sync root inside the cloud drive; created on first sync if missing
 cloud_sync_interval_min = 30              # auto-sync cadence in minutes
+
+[monitor]
+enabled                 = true
+scan_interval_secs      = 10              # quiet-check cadence in seconds
+quiet_threshold_secs    = 20              # seconds without effective output before attention
+tab_flash_duration_secs = 6               # title character animation in seconds; 0 for static only
+tray_flash_enabled      = true            # brief auxiliary tray pulse
 ```
 
 ## Repository Layout
@@ -318,7 +413,10 @@ src-tauri/         Tauri v2 + Rust backend
     config.rs      TOML config read/write
     station.rs     .station hostname filtering
     commands.rs    Commands used by the settings UI
+    monitor/       Session state, quiet checks, reminder policies, and setup commands
 tools/icon-gen/    App icon source artwork + generator
+tools/terminal-agent/  WSL / SSH PTY bridge, CLI hooks, and integration tests
+tools/ui-tests/    Browser interaction tests for settings
 ```
 
 ## Build
