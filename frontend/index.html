@@ -11,6 +11,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="general">General</button>
       <button class="tab" data-tab="paths">Paths</button>
+      <button class="tab" data-tab="monitoring">Monitoring</button>
       <button class="tab" data-tab="cloud">Cloud</button>
       <button class="tab" data-tab="station">Station</button>
       <button class="tab" data-tab="diag">Diagnostics</button>
@@ -39,6 +40,38 @@
             <button id="browseWatch">Browse…</button>
           </div>
         </div>
+      </section>
+
+      <!-- Monitoring: settings remain drafts until Apply; session actions are immediate. -->
+      <section id="monitoring" class="panel" aria-label="Terminal monitoring">
+        <label class="row"><span>Enable terminal monitoring</span><input type="checkbox" id="monitorEnabled" /></label>
+        <p class="hint">Connected Codex and Claude Code sessions are monitored automatically. Enable other connected tabs individually.</p>
+        <div class="monitor-fields">
+          <div class="field"><label for="monitorScan">Scan interval · seconds</label>
+            <input type="number" id="monitorScan" min="1" max="3600" step="1" aria-describedby="monitorScanHelp monitorScanError" />
+            <p class="hint" id="monitorScanHelp">Check for quiet sessions every 10, 20, or your chosen number of seconds.</p><p class="field-error" id="monitorScanError" hidden></p></div>
+          <div class="field"><label for="monitorQuiet">Quiet threshold · seconds</label>
+            <input type="number" id="monitorQuiet" min="1" max="86400" step="1" aria-describedby="monitorQuietHelp monitorQuietError" />
+            <p class="hint" id="monitorQuietHelp">Quiet means no recent output; completion is unconfirmed.</p><p class="field-error" id="monitorQuietError" hidden></p></div>
+          <div class="field"><label for="monitorFlash">Tab header flash · seconds</label>
+            <input type="number" id="monitorFlash" min="0" max="300" step="1" aria-describedby="monitorFlashHelp monitorFlashError" />
+            <p class="hint" id="monitorFlashHelp">Characters alternate briefly, then leave a static marker. Use 0 for a static marker only.</p><p class="field-error" id="monitorFlashError" hidden></p></div>
+        </div>
+        <label class="row"><span>Also pulse the tray icon briefly</span><input type="checkbox" id="monitorTray" /></label>
+        <p class="hint">One second per pulse, at most once a minute. The same turn never flashes again.</p>
+        <p class="monitor-legend">✓ Reply finished <span>? Needs input</span> <span>~ Quiet, unconfirmed</span> <span>! Error</span></p>
+        <div class="monitor-section-heading"><h2>Connected sessions</h2><button type="button" id="monitorRefresh">Refresh</button></div>
+        <p id="monitorStatus" class="hint" role="status" aria-live="polite">Loading sessions…</p>
+        <div id="monitorSessions" class="monitor-session-list"></div>
+        <button type="button" id="monitorMore" hidden>Show more sessions</button>
+        <details class="monitor-setup"><summary>Connect WSL and SSH sessions</summary>
+          <p class="hint">A small bridge observes background tabs without switching them. Prepare the script, install hooks for the tools you use, and run a monitored shell in each tab.</p>
+          <button type="button" id="monitorPrepare">Prepare setup commands</button>
+          <p id="monitorSetupStatus" class="hint" role="status" aria-live="polite"></p>
+          <pre id="monitorCommands" tabindex="0" hidden></pre>
+          <button type="button" id="monitorCopy" hidden>Copy commands</button>
+          <p class="hint">SSH requires Python 3 and the bridge on the remote Linux host. Replace user@host in the commands. Review/trust hooks in each CLI, then restart it inside the monitored shell. Fixed tab titles can hide title markers.</p>
+        </details>
       </section>
 
       <!-- Cloud -->
@@ -99,7 +132,7 @@
     </main>
 
     <footer class="footer">
-      <span id="footerStatus" class="hint"></span>
+      <span id="footerStatus" class="hint" role="status" aria-live="polite"></span>
       <div class="footer-actions">
         <button id="cancelBtn">Cancel</button>
         <button id="applyBtn" class="primary">Apply</button>

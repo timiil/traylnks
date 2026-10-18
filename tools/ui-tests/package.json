@@ -1,0 +1,6 @@
+{
+  "name": "traylnks-ui-tests",
+  "private": true,
+  "scripts": { "test": "node settings.cjs" },
+  "devDependencies": { "playwright": "1.64.1" }
+}

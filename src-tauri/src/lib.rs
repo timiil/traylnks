@@ -8,6 +8,7 @@ mod launch;
 #[cfg(windows)]
 mod launch_windows;
 mod menu_tree;
+mod monitor;
 mod snaps;
 mod state;
 mod station;
@@ -51,6 +52,10 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            monitor::get_monitor_status,
+            monitor::set_monitor_policy,
+            monitor::ack_monitor_attention,
+            monitor::export_monitor_agent,
             commands::get_config,
             commands::set_config,
             commands::get_hostname,

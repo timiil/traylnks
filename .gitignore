@@ -14,3 +14,9 @@ src-tauri/gen/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local verification and UI test dependencies
+node_modules/
+__pycache__/
+.superpowers/
+.worktrees/

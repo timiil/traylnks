@@ -19,6 +19,8 @@ pub struct AppState {
     pub watcher: Mutex<Option<crate::watcher::AppDebouncer>>,
     pub watcher_ok: AtomicBool,
     pub snaps: crate::snaps::SnapState,
+    pub monitor: crate::monitor::MonitorState,
+    pub cached_menu_tree: RwLock<Option<crate::menu_tree::MenuNode>>,
 
     // -- cloud sync --
     /// The active cloud provider (constructed from config at startup).
@@ -44,6 +46,8 @@ impl AppState {
             watcher: Mutex::new(None),
             watcher_ok: AtomicBool::new(false),
             snaps: crate::snaps::SnapState::default(),
+            monitor: crate::monitor::MonitorState::default(),
+            cached_menu_tree: RwLock::new(None),
             provider,
             sync_status: RwLock::new(SyncStatus::default()),
             sync_now: Mutex::new(None),
@@ -68,6 +72,7 @@ pub fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Start the cloud-sync loop if enabled (no-op otherwise).
     crate::cloud::service::start(handle);
+    crate::monitor::start(handle);
 
     Ok(())
 }

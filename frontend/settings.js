@@ -13,6 +13,9 @@ const $ = (id) => document.getElementById(id);
 
 let qrPollTimer = null;
 let statusTimer = null;
+let monitorShown = 30;
+let applying = false;
+const monitorDefaults = { enabled: true, scan_interval_secs: 10, quiet_threshold_secs: 20, tab_flash_duration_secs: 6, tray_flash_enabled: true };
 let saved = null; // last-applied Config snapshot
 
 // ---- tab switching ----
@@ -26,10 +29,7 @@ document.querySelectorAll(".tab").forEach((btn) => {
     // Only poll cloud status while the Cloud tab is visible.
     clearInterval(statusTimer);
     statusTimer = null;
-    if (btn.dataset.tab === "cloud") {
-      refreshCloudStatus();
-      statusTimer = setInterval(refreshCloudStatus, 5000);
-    }
+    startStatusPolling();
   });
 });
 
@@ -42,6 +42,11 @@ function readDom() {
     cloud_folder: $("cloudFolder").value.trim() || null,
     cloud_sync_interval_min: parseInt($("cloudInterval").value, 10) || 30,
     cloud_enabled: $("cloudEnable").checked,
+    monitor: { enabled: $("monitorEnabled").checked,
+      scan_interval_secs: Number($("monitorScan").value),
+      quiet_threshold_secs: Number($("monitorQuiet").value),
+      tab_flash_duration_secs: Number($("monitorFlash").value),
+      tray_flash_enabled: $("monitorTray").checked },
   };
 }
 
@@ -52,6 +57,13 @@ function renderFromConfig(cfg) {
   $("cloudFolder").value = cfg.cloud_folder ?? "";
   $("cloudInterval").value = String(cfg.cloud_sync_interval_min ?? 30);
   $("cloudEnable").checked = !!cfg.cloud_enabled;
+  const monitor = { ...monitorDefaults, ...cfg.monitor };
+  $("monitorEnabled").checked = monitor.enabled;
+  $("monitorScan").value = monitor.scan_interval_secs;
+  $("monitorQuiet").value = monitor.quiet_threshold_secs;
+  $("monitorFlash").value = monitor.tab_flash_duration_secs;
+  $("monitorTray").checked = monitor.tray_flash_enabled;
+  clearMonitorErrors();
 }
 
 function isDirty() {
@@ -63,7 +75,8 @@ function isDirty() {
     d.autostart !== !!saved.autostart ||
     d.cloud_folder !== (saved.cloud_folder ?? null) ||
     d.cloud_sync_interval_min !== (saved.cloud_sync_interval_min ?? 30) ||
-    d.cloud_enabled !== !!saved.cloud_enabled
+    d.cloud_enabled !== !!saved.cloud_enabled ||
+    Object.keys(monitorDefaults).some((key) => d.monitor[key] !== ({ ...monitorDefaults, ...saved.monitor })[key])
   );
 }
 
@@ -80,10 +93,7 @@ async function reloadFromBackend() {
   $("qrHint").hidden = true;
   $("footerStatus").textContent = "";
   refreshDiagnostics();
-  if ($("cloud").classList.contains("active")) {
-    refreshCloudStatus();
-    statusTimer = setInterval(refreshCloudStatus, 5000);
-  }
+  startStatusPolling();
 }
 
 // ---- Apply / Cancel ----
@@ -91,11 +101,26 @@ $("applyBtn").addEventListener("click", applyChanges);
 $("cancelBtn").addEventListener("click", cancel);
 
 async function applyChanges() {
+  if (applying) return;
+  applying = true;
+  $("applyBtn").disabled = true;
+  $("cancelBtn").disabled = true;
+  try { await persistChanges(); }
+  catch (error) { $("footerStatus").textContent = "Save failed: " + error; }
+  finally {
+    applying = false;
+    $("applyBtn").disabled = false;
+    $("cancelBtn").disabled = false;
+  }
+}
+
+async function persistChanges() {
   if (!isDirty()) {
     $("footerStatus").textContent = "No changes to apply.";
     return;
   }
   const draft = readDom();
+  if (!validateMonitor(draft.monitor)) return;
 
   // Validate the cloud folder (format only) before persisting.
   if (draft.cloud_folder) {
@@ -115,6 +140,7 @@ async function applyChanges() {
   cfg.cloud_folder = draft.cloud_folder;
   cfg.cloud_sync_interval_min = draft.cloud_sync_interval_min;
   cfg.cloud_enabled = draft.cloud_enabled;
+  cfg.monitor = { ...cfg.monitor, ...draft.monitor };
 
   // Atomic persist + watcher/cloud/menu restart.
   try {
@@ -148,6 +174,124 @@ async function cancel() {
   await reloadFromBackend();
   await invoke("hide_settings");
 }
+
+// ---- Monitoring ----
+function startStatusPolling() {
+  clearInterval(statusTimer);
+  statusTimer = null;
+  if (document.hidden) return;
+  if ($("cloud").classList.contains("active")) {
+    refreshCloudStatus();
+    statusTimer = setInterval(refreshCloudStatus, 5000);
+  } else if ($("monitoring").classList.contains("active")) {
+    refreshMonitorStatus();
+    statusTimer = setInterval(refreshMonitorStatus, 2000);
+  }
+}
+document.addEventListener("visibilitychange", startStatusPolling);
+
+function clearMonitorErrors() {
+  ["monitorScan", "monitorQuiet", "monitorFlash"].forEach((id) => {
+    $(id).removeAttribute("aria-invalid");
+    $(id + "Error").hidden = true;
+    $(id + "Error").textContent = "";
+  });
+}
+function validateMonitor(monitor) {
+  clearMonitorErrors();
+  let firstInvalid = null;
+  [["monitorScan", monitor.scan_interval_secs, 1, 3600],
+   ["monitorQuiet", monitor.quiet_threshold_secs, 1, 86400],
+   ["monitorFlash", monitor.tab_flash_duration_secs, 0, 300]].forEach(([id, value, min, max]) => {
+    if (!Number.isInteger(value) || value < min || value > max) {
+      $(id).setAttribute("aria-invalid", "true");
+      $(id + "Error").textContent = `Enter a whole number between ${min} and ${max}.`;
+      $(id + "Error").hidden = false;
+      firstInvalid ||= id;
+    }
+  });
+  if (firstInvalid) {
+    document.querySelector('[data-tab="monitoring"]').click();
+    $(firstInvalid).focus();
+    $("footerStatus").textContent = "Check the monitoring values before applying.";
+    return false;
+  }
+  return true;
+}
+
+let monitorRefreshGeneration = 0;
+async function refreshMonitorStatus() {
+  const generation = ++monitorRefreshGeneration;
+  try {
+    const status = await invoke("get_monitor_status");
+    if (generation !== monitorRefreshGeneration) return;
+    $("monitorStatus").textContent = status.error ? `Monitoring issue: ${status.error}` :
+      !status.enabled ? "Monitoring is disabled. Enable it and press Apply to resume." :
+      status.sessions.length ? `${status.attention_count} need attention · ${status.sessions.length} connected sessions` :
+      "No connected sessions. Open the setup guide below to connect a WSL or SSH tab.";
+    $("monitorSessions").replaceChildren();
+    status.sessions.slice(0, monitorShown).forEach((session) => {
+      const row = document.createElement("article");
+      row.className = "monitor-session";
+      const title = document.createElement("strong");
+      title.textContent = `${session.marker ? session.marker + " " : ""}${session.title || "Terminal"}`;
+      const meta = document.createElement("p");
+      meta.className = "hint";
+      meta.textContent = `${session.host} · ${session.tool || "Shell"} · ${session.status}`;
+      row.append(title, meta);
+      if (session.reason) {
+        const reason = document.createElement("p"); reason.className = "hint"; reason.textContent = session.reason; row.append(reason);
+      }
+      const actions = document.createElement("div"); actions.className = "monitor-actions";
+      [["Mark read", "ack", !session.marker], ["Ignore turn", "ignore", !session.monitored],
+       [session.paused ? "Resume" : session.monitored ? "Pause tab" : "Enable tab",
+        session.paused ? "resume" : session.monitored ? "pause" : "enable", false]].forEach(([label, action, disabled]) => {
+        const button = document.createElement("button"); button.type = "button";
+        button.textContent = label; button.disabled = disabled;
+        button.addEventListener("click", async () => {
+          const eligibility = [...actions.children].map((item) => item.disabled);
+          [...actions.children].forEach((item) => { item.disabled = true; });
+          try {
+            await invoke("set_monitor_policy", { sessionId: session.session_id, action });
+            await refreshMonitorStatus();
+          } catch (error) {
+            $("monitorStatus").textContent = "Session action failed: " + error;
+            [...actions.children].forEach((item, index) => { item.disabled = eligibility[index]; });
+          }
+        });
+        actions.append(button);
+      });
+      row.append(actions); $("monitorSessions").append(row);
+    });
+    $("monitorMore").hidden = status.sessions.length <= monitorShown;
+  } catch (error) {
+    if (generation === monitorRefreshGeneration) $("monitorStatus").textContent = "Could not load sessions: " + error;
+  }
+}
+$("monitorRefresh").addEventListener("click", refreshMonitorStatus);
+$("monitorMore").addEventListener("click", () => { monitorShown += 30; refreshMonitorStatus(); });
+$("monitorPrepare").addEventListener("click", async () => {
+  $("monitorPrepare").disabled = true;
+  $("monitorSetupStatus").textContent = "Preparing the bridge…";
+  try {
+    const setup = await invoke("export_monitor_agent");
+    $("monitorCommands").textContent = [
+      "# WSL: install hooks for each tool you use", setup.codex_command, setup.claude_command,
+      "", "# Start a monitored shell in this tab, then run codex / claude", setup.shell_command,
+      "", "# Remote Linux: replace user@host, copy the bridge, then install hooks",
+      ...setup.remote_setup_commands,
+      "", "# Connect from WSL (direct SSH, one session per tab)", setup.ssh_command,
+    ].join("\n");
+    $("monitorCommands").hidden = false;
+    $("monitorCopy").hidden = false;
+    $("monitorSetupStatus").textContent = "Bridge prepared. Run the commands in WSL; install hooks only for tools you use.";
+  } catch (error) { $("monitorSetupStatus").textContent = "Could not prepare the bridge: " + error; }
+  finally { $("monitorPrepare").disabled = false; }
+});
+$("monitorCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("monitorCommands").textContent); $("monitorSetupStatus").textContent = "Commands copied."; }
+  catch { $("monitorSetupStatus").textContent = "Could not copy. Select and copy the commands above."; }
+});
 
 // ---- Paths ----
 $("browseWatch").addEventListener("click", async () => {
@@ -321,6 +465,9 @@ $("refreshNow").addEventListener("click", async () => {
 async function init() {
   $("hostname").value = await invoke("get_hostname");
   await reloadFromBackend();
+  await listen("monitor://changed", () => {
+    if ($("monitoring").classList.contains("active") && !document.hidden) refreshMonitorStatus();
+  });
   // Reopen reload: every show_settings() path emits this, so a hidden window
   // never reopens with a stale draft.
   await listen("settings://shown", () => {

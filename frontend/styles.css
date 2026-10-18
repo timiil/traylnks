@@ -110,3 +110,39 @@ dd { margin: 2px 0 0 0; font-family: "Cascadia Code", "Consolas", monospace; fon
 }
 
 .footer-actions { display: flex; gap: 8px; }
+
+/* Shared controls and scrollbars, including the monitoring panel. */
+* { scrollbar-width: thin; scrollbar-color: var(--muted) var(--bg); }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--bg); }
+*::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid var(--bg); border-radius: 6px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: default; }
+button:disabled:hover { border-color: var(--border); }
+button:active:not(:disabled) { filter: brightness(.9); }
+button.primary { color: var(--bg); font-weight: 600; }
+.tabs { flex-wrap: wrap; }
+main { min-height: 0; }
+input[type="number"] { background: #15151f; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; width: 110px; font: inherit; }
+input[aria-invalid="true"] { border-color: var(--text); outline: 1px solid var(--text); }
+.field-error { color: var(--text); font-size: 12px; }
+.monitor-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }
+.monitor-fields .hint { line-height: 1.5; }
+.monitor-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+.monitor-section-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; gap: 12px; }
+.monitor-section-heading h2 { font-size: 14px; margin: 0; }
+.monitor-session-list { max-height: 360px; overflow: auto; scrollbar-gutter: stable; }
+.monitor-session { padding: 12px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.monitor-session .hint { margin: 6px 0; }
+.monitor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.monitor-actions button { font-size: 12px; }
+.monitor-setup { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; }
+.monitor-setup summary { cursor: pointer; }
+.monitor-setup pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; background: #15151f; padding: 12px; font: 12px/1.6 "Cascadia Code", Consolas, monospace; }
+.footer { min-width: 0; }
+#footerStatus { overflow-wrap: anywhere; }
+@media (forced-colors: active) {
+  * { scrollbar-color: auto; }
+  :focus-visible { outline-color: Highlight; }
+}

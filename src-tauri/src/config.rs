@@ -28,6 +28,10 @@ fn default_interval() -> u32 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Terminal monitoring only observes explicitly connected bridge sessions.
+    #[serde(default)]
+    pub monitor: crate::monitor::MonitorConfig,
+
     /// Local watch path — the single source of the tray menu. `None` on first run.
     #[serde(default)]
     pub watch_path: Option<PathBuf>,
@@ -62,6 +66,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            monitor: crate::monitor::MonitorConfig::default(),
             watch_path: None,
             cloud_enabled: false,
             cloud_provider: default_aliyun(),
@@ -83,13 +88,22 @@ impl Config {
             .map(|d| d.join("config.toml"))
     }
 
+    fn parse(text: &str) -> Result<Self, toml::de::Error> {
+        let mut config: Self = toml::from_str(text)?;
+        if let Err(error) = config.monitor.validate() {
+            log::warn!("Invalid monitor settings; using monitoring defaults: {error}");
+            config.monitor = crate::monitor::MonitorConfig::default();
+        }
+        Ok(config)
+    }
+
     /// Load config, returning the default if missing or unparseable (never errors).
     pub fn load(app: &tauri::AppHandle) -> Self {
         let Some(p) = Self::path(app) else {
             return Self::default();
         };
         match std::fs::read_to_string(&p) {
-            Ok(s) => toml::from_str(&s).unwrap_or_else(|e| {
+            Ok(s) => Self::parse(&s).unwrap_or_else(|e| {
                 log::warn!("config parse error at {}: {e}", p.display());
                 Self::default()
             }),
@@ -105,5 +119,19 @@ impl Config {
         let s = toml::to_string_pretty(self).map_err(|e| format!("serialize config: {e}"))?;
         std::fs::write(&p, s).map_err(|e| format!("write config: {e}"))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn old_config_works_and_invalid_monitor_values_do_not_break_other_settings() {
+        let old = Config::parse("watch_path = 'D:\\Tools'").unwrap();
+        assert_eq!(old.monitor.scan_interval_secs, 10);
+        let invalid =
+            Config::parse("watch_path = 'D:\\Tools'\n[monitor]\nscan_interval_secs = 0").unwrap();
+        assert_eq!(invalid.watch_path, old.watch_path);
+        assert_eq!(invalid.monitor.scan_interval_secs, 10);
     }
 }

@@ -25,6 +25,7 @@ pub struct JobStatus {
 
 #[derive(Default)]
 pub struct SnapState {
+    pub feedback: Mutex<String>,
     pub job: Mutex<JobStatus>,
     #[cfg(windows)]
     pub foreground_before_menu: std::sync::atomic::AtomicIsize,

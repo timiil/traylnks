@@ -15,6 +15,7 @@
 - 启动后尽量把窗口带到前台
 - 同名图片作为图标：`<name>.ico/.png/.jpg/.jpeg`（文件夹也支持，如 `Development/` + `Development.png`）
 - 无同名图标时，按路径哈希从 50 个内置 fallback 图标中稳定分配一个
+- **终端会话监控**：支持 WSL 和直接 SSH 中已接入的 AI CLI，以可配置的 tab 头字符短闪提示待关注状态，同一轮不反复提醒。[使用说明](docs/terminal-monitor.md)
 - **TakeSnap / ViewSnaps**：保存所有 Windows Terminal 窗口中每个 tab 的当前视区截图和文字，重启后可按时间回看
 - `.station` 文件按 Windows 主机名过滤子树
 - 其他文件被忽略
@@ -56,6 +57,14 @@ TIM-LAPTOP
 ```
 
 不区分大小写、精确匹配；`#` 起始为注释，空行忽略；空 `.station` 在所有主机隐藏该目录；父目录不匹配则整个子树跳过。
+
+## 终端会话监控
+
+在 **Settings → Monitoring** 配置扫描间隔（默认 10 秒）、安静阈值（默认 20 秒）和 tab 头闪动时长（默认 6 秒，0 为只留静态标记）。明确的完成／待输入信号即时处理；托盘只短暂变色 1 秒，至多每分钟一次，可关闭。
+
+先展开 **Connect WSL and SSH sessions → Prepare setup commands**，按生成的命令安装 Codex／Claude Code hooks，并在各 tab 启动监控 shell。SSH 远端需要 Python 3 和同一份桥接脚本。已有会话通过监控入口重新接入；不会轮流切换 tab 读屏。
+
+`✓` 表示本轮回复结束，`?` 表示明确等待输入或授权，`~` 仅表示安静、结果未确认，`!` 表示明确异常。闪完留下静态标记，可在托盘或 Monitoring 页 **Mark read / Ignore turn / Pause tab**。普通 shell 默认不监控，可手动开启。详细接入、边界及测试见 [终端监控说明](docs/terminal-monitor.md)。
 
 ## 终端快照
 
@@ -193,6 +202,7 @@ A lightweight Windows tray link launcher: map a local folder into a multi-level 
 - Best-effort foreground focus on launch
 - Same-name image as icon: `<name>.ico/.png/.jpg/.jpeg` (folders too, e.g. `Development/` + `Development.png`)
 - Items without a matching icon get a stable path-hashed pick from 50 built-in fallbacks
+- **Terminal monitoring** watches connected WSL / direct SSH AI sessions with configurable tab-header character pulses and per-turn suppression. See [setup and behavior](docs/terminal-monitor.md).
 - **TakeSnap / ViewSnaps** save every Windows Terminal tab's current viewport image and text for viewing after a restart
 - `.station` files filter a subtree by Windows hostname
 - Other files are ignored

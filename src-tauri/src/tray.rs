@@ -46,6 +46,10 @@ pub fn rebuild_now(app: &AppHandle<Wry>) {
             }
             None => empty_tree(),
         };
+        *app2
+            .state::<crate::state::AppState>()
+            .cached_menu_tree
+            .write() = Some(tree.clone());
         let app3 = app2.clone();
         let _ = app2.run_on_main_thread(move || match build_menu(&app3, &tree) {
             Ok(menu) => {
@@ -65,6 +69,16 @@ pub fn rebuild_now(app: &AppHandle<Wry>) {
 /// in the id; the rest are the fixed utility items.
 pub fn handle_menu_event(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
     let id = event.id().as_ref();
+    if let Some(value) = id.strip_prefix("monitor:") {
+        if let Some((action, session_id)) = value.split_once(':') {
+            if let Err(error) =
+                crate::monitor::set_monitor_policy(app.clone(), session_id.into(), action.into())
+            {
+                log::warn!("Monitor action: {error}");
+            }
+        }
+        return;
+    }
     if let Some(path_str) = id.strip_prefix(RUN_PREFIX) {
         let path = PathBuf::from(path_str);
         if let Err(e) = crate::launch::launch_target(&path) {
@@ -95,13 +109,17 @@ pub fn handle_menu_event(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
 }
 
 fn current_tree(app: &AppHandle<Wry>) -> MenuNode {
-    match crate::state::watch_path(app) {
+    let tree = match crate::state::watch_path(app) {
         Some(wp) => {
             let hostname = crate::state::hostname(app);
             crate::menu_tree::build_tree(&wp, &hostname)
         }
         None => empty_tree(),
-    }
+    };
+    *app.state::<crate::state::AppState>()
+        .cached_menu_tree
+        .write() = Some(tree.clone());
+    tree
 }
 
 fn empty_tree() -> MenuNode {
@@ -122,6 +140,7 @@ pub fn build_menu(app: &AppHandle<Wry>, tree: &MenuNode) -> tauri::Result<Menu<W
         owned.push(build_item(app, child)?);
     }
     owned.push(Box::new(PredefinedMenuItem::separator(app)?));
+    owned.push(Box::new(build_monitor_menu(app)?));
     let capturing = app
         .state::<crate::state::AppState>()
         .snaps
@@ -183,20 +202,113 @@ pub fn build_menu(app: &AppHandle<Wry>, tree: &MenuNode) -> tauri::Result<Menu<W
 /// Keep success/failure feedback available without opening another window or
 /// taking focus away from the terminal whose state was just restored.
 pub fn snap_tooltip(app: &AppHandle<Wry>, message: &str) {
-    // Windows limits notification-icon tooltips to 128 UTF-16 code units.
-    let mut tooltip = String::from("TrayLnks · ");
-    for c in message.chars() {
-        if tooltip.encode_utf16().count() + c.len_utf16() > 120 {
-            break;
-        }
-        tooltip.push(c);
-    }
+    *app.state::<crate::state::AppState>().snaps.feedback.lock() = message.into();
+    crate::monitor::refresh_tray(app);
+}
+
+/// Refresh utility state using the already scanned launcher tree.
+pub fn refresh_cached(app: &AppHandle<Wry>) {
+    let tree = app
+        .state::<crate::state::AppState>()
+        .cached_menu_tree
+        .read()
+        .clone()
+        .unwrap_or_else(empty_tree);
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Some(tray) = handle.tray_by_id(TRAY_ID) {
-            let _ = tray.set_tooltip(Some(&tooltip));
+        if let Ok(menu) = build_menu(&handle, &tree) {
+            if let Some(tray) = handle.tray_by_id(TRAY_ID) {
+                let _ = tray.set_menu(Some(menu));
+            }
         }
     });
+}
+
+fn build_monitor_menu(app: &AppHandle<Wry>) -> tauri::Result<Submenu<Wry>> {
+    let status = crate::monitor::get_monitor_status(app.clone());
+    let label = if status.enabled {
+        format!(
+            "Terminal Monitor ({} need attention)",
+            status.attention_count
+        )
+    } else {
+        "Terminal Monitor (disabled)".into()
+    };
+    let mut items: Vec<Box<dyn IsMenuItem<Wry>>> = Vec::new();
+    for session in status.sessions.iter().take(30) {
+        let title = crate::monitor::safe_label(
+            &format!(
+                "{} {} · {} · {}",
+                session.marker, session.title, session.host, session.status
+            ),
+            100,
+        )
+        .replace('&', "&&");
+        let mut actions = Vec::new();
+        let summary = MenuItem::with_id(
+            app,
+            format!("monitor_info:{}", session.session_id),
+            if session.reason.is_empty() {
+                session.status.clone()
+            } else {
+                session.reason.clone()
+            }
+            .replace('&', "&&"),
+            false,
+            None::<&str>,
+        )?;
+        actions.push(summary);
+        for (action, text, enabled) in [
+            ("ack", "Mark as read", !session.marker.is_empty()),
+            ("ignore", "Ignore this turn", session.monitored),
+            (
+                if session.paused {
+                    "resume"
+                } else if session.monitored {
+                    "pause"
+                } else {
+                    "enable"
+                },
+                if session.paused {
+                    "Resume monitoring"
+                } else if session.monitored {
+                    "Pause this tab"
+                } else {
+                    "Enable monitoring"
+                },
+                true,
+            ),
+        ] {
+            actions.push(MenuItem::with_id(
+                app,
+                format!("monitor:{action}:{}", session.session_id),
+                text,
+                enabled,
+                None::<&str>,
+            )?);
+        }
+        let refs: Vec<&dyn IsMenuItem<Wry>> =
+            actions.iter().map(|a| a as &dyn IsMenuItem<Wry>).collect();
+        items.push(Box::new(Submenu::with_items(app, title, true, &refs)?));
+    }
+    if status.sessions.is_empty() {
+        items.push(Box::new(MenuItem::with_id(
+            app,
+            "monitor_empty",
+            "Connect a session in Settings → Monitoring",
+            false,
+            None::<&str>,
+        )?));
+    }
+    items.push(Box::new(MenuItem::with_id(
+        app,
+        "settings",
+        "Monitoring settings / all sessions…",
+        true,
+        None::<&str>,
+    )?));
+    let refs: Vec<&dyn IsMenuItem<Wry>> = items.iter().map(|item| item.as_ref()).collect();
+    Submenu::with_items(app, label, true, &refs)
 }
 
 fn build_item(app: &AppHandle<Wry>, node: &MenuNode) -> tauri::Result<Box<dyn IsMenuItem<Wry>>> {

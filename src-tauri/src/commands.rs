@@ -29,13 +29,25 @@ pub fn get_config(app: AppHandle<Wry>) -> Config {
 /// Save config, restart the watcher, and rebuild the menu.
 #[tauri::command]
 pub fn set_config(app: AppHandle<Wry>, cfg: Config) -> Result<(), String> {
+    cfg.monitor.validate()?;
     cfg.save(&app).map_err(|e| e.to_string())?;
-    let watch = cfg.watch_path.clone();
-    *app.state::<AppState>().config.write() = cfg;
-    crate::watcher::restart(&app, watch);
-    crate::tray::rebuild_now(&app);
-    // Re-evaluate the cloud-sync loop against the new config.
-    crate::cloud::service::restart(&app);
+    let previous = app.state::<AppState>().config.read().clone();
+    *app.state::<AppState>().config.write() = cfg.clone();
+    if previous.watch_path != cfg.watch_path {
+        crate::watcher::restart(&app, cfg.watch_path.clone());
+        crate::tray::rebuild_now(&app);
+    }
+    if previous.cloud_enabled != cfg.cloud_enabled
+        || previous.cloud_provider != cfg.cloud_provider
+        || previous.cloud_folder != cfg.cloud_folder
+        || previous.cloud_sync_interval_min != cfg.cloud_sync_interval_min
+        || previous.watch_path != cfg.watch_path
+    {
+        crate::cloud::service::restart(&app);
+    }
+    if previous.monitor != cfg.monitor {
+        crate::monitor::reconfigure(&app);
+    }
     Ok(())
 }
 

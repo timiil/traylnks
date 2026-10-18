@@ -1,0 +1,9 @@
+{
+  "profile": "utility",
+  "sourceRoots": ["frontend"],
+  "locale": "en-US",
+  "ownership": { "Select/Listbox": "native" },
+  "commands": { "ui": "npm --prefix tools/ui-tests test" },
+  "requiredCommands": ["ui"],
+  "evidence": { "settingsInteraction": "tools/ui-tests/settings.cjs" }
+}
