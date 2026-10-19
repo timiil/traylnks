@@ -1,0 +1,65 @@
+# Windows x64 release build, run natively on a windows runner (no cargo-xwin
+# needed there — MSVC toolchain is preinstalled). Mirrors the local flow from
+# README ("cargo tauri build --runner cargo-xwin"): bundle targets are empty,
+# so a plain `cargo build --release` produces the same traylnks.exe.
+#
+# Artifacts:
+#   - every run  → workflow artifact "TrayLnks-windows-x64" (7-day retention)
+#   - tags (v*)  → attached to a GitHub Release
+name: build-windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # required to create Releases on tag push
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins "stable"; the action just makes sure rustup
+      # and the x86_64-pc-windows-msvc target are ready without a first-build
+      # proxy round-trip.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build release exe
+        run: cargo build --release --locked
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VER="$GITHUB_REF_NAME"            # e.g. v0.1.1
+          else
+            VER="dev-${GITHUB_SHA::7}"        # manual run on a branch
+          fi
+          cp target/release/traylnks.exe "TrayLnks-${VER}-x64.exe"
+          ls -lh TrayLnks-*.exe
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrayLnks-windows-x64
+          path: src-tauri/TrayLnks-*-x64.exe
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src-tauri/TrayLnks-*-x64.exe
+          generate_release_notes: true
